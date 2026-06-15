@@ -1,11 +1,30 @@
 import { Building2, Save, Shield, Trash2, User } from "lucide-react";
 
+import { cleanEnum } from "@/lib/format";
+import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const business = await getDemoBusiness();
+
+  const businessWithOwner = await prisma.business.findUnique({
+    where: {
+      id: business.id,
+    },
+    include: {
+      owner: true,
+      subscription: true,
+    },
+  });
+
+  if (!businessWithOwner) {
+    throw new Error("Business not found.");
+  }
+
   return (
     <div>
       <ModuleHeader
@@ -32,36 +51,36 @@ export default function SettingsPage() {
             <CardContent className="space-y-5">
               <div className="grid gap-2">
                 <label className="text-sm font-medium">Business name</label>
-                <Input value="Glow Barbershop" readOnly />
+                <Input value={businessWithOwner.name} readOnly />
               </div>
 
               <div className="grid gap-2 md:grid-cols-2">
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">Business type</label>
-                  <Input value="Barber" readOnly />
+                  <Input value={businessWithOwner.businessType} readOnly />
                 </div>
 
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">Public slug</label>
-                  <Input value="glowbarbershop" readOnly />
+                  <Input value={businessWithOwner.slug} readOnly />
                 </div>
               </div>
 
               <div className="grid gap-2 md:grid-cols-2">
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">Phone</label>
-                  <Input value="+1 519 555 0188" readOnly />
+                  <Input value={businessWithOwner.phone ?? ""} readOnly />
                 </div>
 
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">Email</label>
-                  <Input value="hello@glowbarbershop.com" readOnly />
+                  <Input value={businessWithOwner.email ?? ""} readOnly />
                 </div>
               </div>
 
               <div className="grid gap-2">
                 <label className="text-sm font-medium">Address</label>
-                <Input value="London, Ontario, Canada" readOnly />
+                <Input value={businessWithOwner.address ?? ""} readOnly />
               </div>
 
               <div className="grid gap-2">
@@ -69,7 +88,7 @@ export default function SettingsPage() {
                 <textarea
                   readOnly
                   className="min-h-28 rounded-xl border border-neutral-200 px-4 py-3 text-sm outline-none"
-                  value="Modern barbershop offering haircuts, fades, beard trims, and grooming services."
+                  value={businessWithOwner.description ?? ""}
                 />
               </div>
             </CardContent>
@@ -87,7 +106,7 @@ export default function SettingsPage() {
               <div className="grid gap-2 md:grid-cols-2">
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">Full name</label>
-                  <Input value="Ugochukwu" readOnly />
+                  <Input value={businessWithOwner.owner.name ?? ""} readOnly />
                 </div>
 
                 <div className="grid gap-2">
@@ -98,7 +117,7 @@ export default function SettingsPage() {
 
               <div className="grid gap-2">
                 <label className="text-sm font-medium">Email</label>
-                <Input value="owner@schedora.app" readOnly />
+                <Input value={businessWithOwner.owner.email} readOnly />
               </div>
             </CardContent>
           </Card>
@@ -116,8 +135,18 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <SettingRow title="Authentication" value="Clerk planned" />
               <SettingRow title="Tenant isolation" value="Required" />
-              <SettingRow title="Business role" value="Owner" />
-              <SettingRow title="Admin access" value="No" />
+              <SettingRow
+                title="Business status"
+                value={cleanEnum(businessWithOwner.status)}
+              />
+              <SettingRow
+                title="Current plan"
+                value={
+                  businessWithOwner.subscription?.plan
+                    ? cleanEnum(businessWithOwner.subscription.plan)
+                    : "Free"
+                }
+              />
 
               <p className="rounded-xl border border-neutral-200 p-4 text-sm leading-6 text-neutral-600">
                 When authentication is connected, this page will only show data

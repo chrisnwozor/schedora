@@ -8,19 +8,37 @@ import {
   Settings,
 } from "lucide-react";
 
+import { formatMoneyFromCents } from "@/lib/format";
+import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-const services = [
-  ["Haircut", "$35", "30 min"],
-  ["Fade", "$40", "35 min"],
-  ["Fade + Beard", "$55", "50 min"],
-];
+export default async function BookingPageSettings() {
+  const business = await getDemoBusiness();
 
-export default function BookingPageSettings() {
+  const services = await prisma.service.findMany({
+    where: {
+      businessId: business.id,
+      isActive: true,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+
+  const availabilityRules = await prisma.availabilityRule.findMany({
+    where: {
+      businessId: business.id,
+      staffMemberId: null,
+    },
+  });
+
+  const openDays = availabilityRules.filter((rule) => !rule.isClosed).length;
+  const bookingLink = `schedora.app/book/${business.slug}`;
+
   return (
     <div>
       <ModuleHeader
@@ -50,9 +68,7 @@ export default function BookingPageSettings() {
               <div className="mt-6 grid gap-3 md:grid-cols-[1fr_auto]">
                 <div className="flex items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3">
                   <LinkIcon className="size-4 text-neutral-500" />
-                  <span className="truncate text-sm">
-                    schedora.app/book/glowbarbershop
-                  </span>
+                  <span className="truncate text-sm">{bookingLink}</span>
                 </div>
 
                 <Button className="bg-black text-white hover:bg-neutral-800">
@@ -71,7 +87,7 @@ export default function BookingPageSettings() {
             <CardContent className="space-y-5">
               <div className="grid gap-2">
                 <label className="text-sm font-medium">Business slug</label>
-                <Input value="glowbarbershop" readOnly />
+                <Input value={business.slug} readOnly />
                 <p className="text-sm text-neutral-500">
                   This controls your public booking URL.
                 </p>
@@ -82,7 +98,7 @@ export default function BookingPageSettings() {
                   Booking page title
                 </label>
                 <Input
-                  value="Book an appointment with Glow Barbershop"
+                  value={`Book an appointment with ${business.name}`}
                   readOnly
                 />
               </div>
@@ -94,7 +110,10 @@ export default function BookingPageSettings() {
                 <textarea
                   readOnly
                   className="min-h-28 rounded-xl border border-neutral-200 px-4 py-3 text-sm outline-none"
-                  value="Choose your service, pick a time, and confirm your appointment in minutes."
+                  value={
+                    business.description ??
+                    "Choose your service, pick a time, and confirm your appointment in minutes."
+                  }
                 />
               </div>
 
@@ -119,8 +138,10 @@ export default function BookingPageSettings() {
                     <Globe className="size-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold">Glow Barbershop</h3>
-                    <p className="text-sm text-neutral-500">Barber</p>
+                    <h3 className="font-semibold">{business.name}</h3>
+                    <p className="text-sm text-neutral-500">
+                      {business.businessType}
+                    </p>
                   </div>
                 </div>
 
@@ -131,14 +152,18 @@ export default function BookingPageSettings() {
                 <div className="mt-5 space-y-3">
                   {services.map((service) => (
                     <div
-                      key={service[0]}
+                      key={service.id}
                       className="flex items-center justify-between rounded-xl border border-neutral-200 p-4"
                     >
                       <div>
-                        <p className="font-medium">{service[0]}</p>
-                        <p className="text-sm text-neutral-500">{service[2]}</p>
+                        <p className="font-medium">{service.name}</p>
+                        <p className="text-sm text-neutral-500">
+                          {service.durationMinutes} min
+                        </p>
                       </div>
-                      <p className="font-semibold">{service[1]}</p>
+                      <p className="font-semibold">
+                        {formatMoneyFromCents(service.priceCents)}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -160,11 +185,12 @@ export default function BookingPageSettings() {
                     Public page active
                   </p>
                   <p className="flex items-center gap-2">
-                    <Check className="size-4" />5 services available
+                    <Check className="size-4" />
+                    {services.length} services available
                   </p>
                   <p className="flex items-center gap-2">
                     <Check className="size-4" />
-                    Availability configured
+                    {openDays} open days configured
                   </p>
                 </div>
               </div>
