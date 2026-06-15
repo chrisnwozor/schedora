@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Calendar, Filter, Plus, Search } from "lucide-react";
 
 import { formatDate, formatTime, cleanEnum } from "@/lib/format";
@@ -48,8 +49,13 @@ export default async function AppointmentsPage() {
         description="Manage bookings, schedules, statuses, and customer appointments."
         action={
           <Button className="bg-black text-white hover:bg-neutral-800">
-            <Plus className="mr-2 size-4" />
-            New appointment
+            <Link
+              href="/appointments/new"
+              className="inline-flex items-center gap-2 whitespace-nowrap no-underline"
+            >
+              <Plus className="size-4" />
+              New appointment
+            </Link>
           </Button>
         }
       />

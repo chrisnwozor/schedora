@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Calendar, Plus, Scissors } from "lucide-react";
 
 import { getInitials } from "@/lib/format";
@@ -30,8 +31,13 @@ export default async function StaffPage() {
         description="Manage staff members, roles, assigned services, and appointment capacity."
         action={
           <Button className="bg-black text-white hover:bg-neutral-800">
-            <Plus className="mr-2 size-4" />
-            Add staff member
+            <Link
+              href="/staff/new"
+              className="inline-flex items-center gap-2 whitespace-nowrap no-underline"
+            >
+              <Plus className="size-4" />
+              Add staff member
+            </Link>
           </Button>
         }
       />

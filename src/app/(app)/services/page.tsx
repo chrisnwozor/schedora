@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Clock, DollarSign, Plus, Scissors } from "lucide-react";
 
 import { formatMoneyFromCents } from "@/lib/format";
@@ -42,9 +43,14 @@ export default async function ServicesPage() {
         title="Services"
         description="Create services, set pricing, manage durations, and control what customers can book."
         action={
-          <Button className="bg-black text-white hover:bg-neutral-800">
-            <Plus className="mr-2 size-4" />
-            Add service
+          <Button asChild className="bg-black text-white hover:bg-neutral-800">
+            <Link
+              href="/services/new"
+              className="inline-flex items-center gap-2 whitespace-nowrap no-underline"
+            >
+              <Plus className="size-4" />
+              Add service
+            </Link>
           </Button>
         }
       />

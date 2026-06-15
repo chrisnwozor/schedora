@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Mail, Phone, Plus, Search, Users } from "lucide-react";
 
 import { getInitials } from "@/lib/format";
@@ -31,8 +32,13 @@ export default async function CustomersPage() {
         description="View customer records, contact information, and booking history."
         action={
           <Button className="bg-black text-white hover:bg-neutral-800">
-            <Plus className="mr-2 size-4" />
-            Add customer
+            <Link
+              href="/customers/new"
+              className="inline-flex items-center gap-2 whitespace-nowrap no-underline"
+            >
+              <Plus className="size-4" />
+              Add customer
+            </Link>
           </Button>
         }
       />
