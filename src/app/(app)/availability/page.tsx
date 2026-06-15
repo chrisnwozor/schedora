@@ -1,20 +1,25 @@
 import { Clock, Save } from "lucide-react";
 
+import { dayName, formatTime } from "@/lib/format";
+import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const availability = [
-  ["Monday", "9:00 AM", "6:00 PM", true],
-  ["Tuesday", "9:00 AM", "6:00 PM", true],
-  ["Wednesday", "9:00 AM", "6:00 PM", true],
-  ["Thursday", "9:00 AM", "6:00 PM", true],
-  ["Friday", "9:00 AM", "6:00 PM", true],
-  ["Saturday", "10:00 AM", "4:00 PM", true],
-  ["Sunday", "Closed", "Closed", false],
-];
+export default async function AvailabilityPage() {
+  const business = await getDemoBusiness();
 
-export default function AvailabilityPage() {
+  const availability = await prisma.availabilityRule.findMany({
+    where: {
+      businessId: business.id,
+      staffMemberId: null,
+    },
+    orderBy: {
+      dayOfWeek: "asc",
+    },
+  });
+
   return (
     <div>
       <ModuleHeader
@@ -38,13 +43,13 @@ export default function AvailabilityPage() {
             <div className="space-y-4">
               {availability.map((day) => (
                 <div
-                  key={day[0].toString()}
+                  key={day.id}
                   className="grid gap-4 rounded-2xl border border-neutral-200 p-5 md:grid-cols-[1fr_1fr_1fr_auto]"
                 >
                   <div>
-                    <p className="font-semibold">{day[0]}</p>
+                    <p className="font-semibold">{dayName(day.dayOfWeek)}</p>
                     <p className="mt-1 text-sm text-neutral-500">
-                      {day[3] ? "Open for bookings" : "Closed"}
+                      {day.isClosed ? "Closed" : "Open for bookings"}
                     </p>
                   </div>
 
@@ -53,14 +58,14 @@ export default function AvailabilityPage() {
                       Start time
                     </label>
                     <div className="mt-2 rounded-xl border border-neutral-200 px-4 py-3 text-sm">
-                      {day[1]}
+                      {day.isClosed ? "Closed" : formatTime(day.startTime)}
                     </div>
                   </div>
 
                   <div>
                     <label className="text-sm text-neutral-500">End time</label>
                     <div className="mt-2 rounded-xl border border-neutral-200 px-4 py-3 text-sm">
-                      {day[2]}
+                      {day.isClosed ? "Closed" : formatTime(day.endTime)}
                     </div>
                   </div>
 

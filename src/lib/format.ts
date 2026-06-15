@@ -24,3 +24,33 @@ export function formatDate(date: Date) {
     year: "numeric",
   }).format(date);
 }
+
+export function cleanEnum(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+export function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+export function dayName(dayOfWeek: number) {
+  const days = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+
+  return days[dayOfWeek] ?? "Unknown";
+}

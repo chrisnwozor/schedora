@@ -1,48 +1,46 @@
 import { Calendar, Filter, Plus, Search } from "lucide-react";
 
+import { formatDate, formatTime, cleanEnum } from "@/lib/format";
+import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-const appointments = [
-  [
-    "Dwayne Carter",
-    "Fade + Beard",
-    "James",
-    "May 19, 2025",
-    "9:00 AM",
-    "Confirmed",
-  ],
-  [
-    "Marvin McKinney",
-    "Haircut",
-    "James",
-    "May 19, 2025",
-    "10:30 AM",
-    "Confirmed",
-  ],
-  ["Cody Fisher", "Fade", "Mike", "May 19, 2025", "12:00 PM", "Pending"],
-  [
-    "Brooklyn Simmons",
-    "Haircut + Beard",
-    "James",
-    "May 19, 2025",
-    "1:30 PM",
-    "Completed",
-  ],
-  [
-    "Esther Howard",
-    "Beard Trim",
-    "Mike",
-    "May 19, 2025",
-    "3:00 PM",
-    "Confirmed",
-  ],
-];
+export default async function AppointmentsPage() {
+  const business = await getDemoBusiness();
 
-export default function AppointmentsPage() {
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      businessId: business.id,
+    },
+    include: {
+      customer: true,
+      service: true,
+      staffMember: true,
+    },
+    orderBy: [
+      {
+        date: "desc",
+      },
+      {
+        startTime: "asc",
+      },
+    ],
+  });
+
+  const today = new Date("2026-06-15T00:00:00.000Z");
+
+  const todayAppointments = appointments.filter(
+    (appointment) => appointment.date.toDateString() === today.toDateString(),
+  );
+
+  const pendingAppointments = appointments.filter(
+    (appointment) => appointment.status === "PENDING",
+  );
+
   return (
     <div>
       <ModuleHeader
@@ -58,13 +56,21 @@ export default function AppointmentsPage() {
 
       <main className="space-y-6 p-6 lg:p-10">
         <section className="grid gap-5 md:grid-cols-3">
-          <SummaryCard title="Today" value="12" helper="3 pending" />
           <SummaryCard
-            title="This week"
-            value="28"
-            helper="Upcoming appointments"
+            title="Today"
+            value={todayAppointments.length.toString()}
+            helper="Appointments today"
           />
-          <SummaryCard title="This month" value="68" helper="Total bookings" />
+          <SummaryCard
+            title="All bookings"
+            value={appointments.length.toString()}
+            helper="Total appointment records"
+          />
+          <SummaryCard
+            title="Pending"
+            value={pendingAppointments.length.toString()}
+            helper="Need confirmation"
+          />
         </section>
 
         <Card className="rounded-2xl border-neutral-200 shadow-none">
@@ -102,19 +108,30 @@ export default function AppointmentsPage() {
                   <th className="py-3 font-medium">Action</th>
                 </tr>
               </thead>
+
               <tbody>
                 {appointments.map((appointment) => (
                   <tr
-                    key={appointment.join("-")}
+                    key={appointment.id}
                     className="border-b border-neutral-100"
                   >
-                    <td className="py-4 font-medium">{appointment[0]}</td>
-                    <td className="py-4">{appointment[1]}</td>
-                    <td className="py-4 text-neutral-600">{appointment[2]}</td>
-                    <td className="py-4 text-neutral-600">{appointment[3]}</td>
-                    <td className="py-4 text-neutral-600">{appointment[4]}</td>
+                    <td className="py-4 font-medium">
+                      {appointment.customer.name}
+                    </td>
+                    <td className="py-4">{appointment.service.name}</td>
+                    <td className="py-4 text-neutral-600">
+                      {appointment.staffMember?.name ?? "Unassigned"}
+                    </td>
+                    <td className="py-4 text-neutral-600">
+                      {formatDate(appointment.date)}
+                    </td>
+                    <td className="py-4 text-neutral-600">
+                      {formatTime(appointment.startTime)}
+                    </td>
                     <td className="py-4">
-                      <Badge variant="secondary">{appointment[5]}</Badge>
+                      <Badge variant="secondary">
+                        {cleanEnum(appointment.status)}
+                      </Badge>
                     </td>
                     <td className="py-4">
                       <Button variant="outline" size="sm">

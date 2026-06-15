@@ -1,17 +1,28 @@
-import { Calendar, Plus, Scissors, Users } from "lucide-react";
+import { Calendar, Plus, Scissors } from "lucide-react";
 
+import { getInitials } from "@/lib/format";
+import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const staff = [
-  ["James Wilson", "Barber", "5 services", "24 appointments", "Active"],
-  ["Mike Adams", "Barber", "3 services", "18 appointments", "Active"],
-  ["Sarah Lee", "Manager", "All services", "12 appointments", "Active"],
-];
+export default async function StaffPage() {
+  const business = await getDemoBusiness();
 
-export default function StaffPage() {
+  const staff = await prisma.staffMember.findMany({
+    where: {
+      businessId: business.id,
+    },
+    include: {
+      appointments: true,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+
   return (
     <div>
       <ModuleHeader
@@ -27,9 +38,17 @@ export default function StaffPage() {
 
       <main className="space-y-6 p-6 lg:p-10">
         <section className="grid gap-5 md:grid-cols-3">
-          <Summary title="Staff members" value="3" />
-          <Summary title="Active today" value="2" />
-          <Summary title="Assigned services" value="8" />
+          <Summary title="Staff members" value={staff.length.toString()} />
+          <Summary
+            title="Active"
+            value={staff.filter((member) => member.isActive).length.toString()}
+          />
+          <Summary
+            title="Assigned appointments"
+            value={staff
+              .reduce((total, member) => total + member.appointments.length, 0)
+              .toString()}
+          />
         </section>
 
         <Card className="rounded-2xl border-neutral-200 shadow-none">
@@ -40,30 +59,31 @@ export default function StaffPage() {
           <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {staff.map((member) => (
               <div
-                key={member[0]}
+                key={member.id}
                 className="rounded-2xl border border-neutral-200 p-5"
               >
                 <div className="flex items-start justify-between">
                   <div className="grid size-12 place-items-center rounded-full bg-neutral-100 font-bold">
-                    {member[0]
-                      .split(" ")
-                      .map((part) => part[0])
-                      .join("")}
+                    {getInitials(member.name)}
                   </div>
-                  <Badge variant="secondary">{member[4]}</Badge>
+                  <Badge variant="secondary">
+                    {member.isActive ? "Active" : "Inactive"}
+                  </Badge>
                 </div>
 
-                <h3 className="mt-5 text-lg font-bold">{member[0]}</h3>
-                <p className="text-sm text-neutral-500">{member[1]}</p>
+                <h3 className="mt-5 text-lg font-bold">{member.name}</h3>
+                <p className="text-sm text-neutral-500">
+                  {member.roleTitle ?? "Staff member"}
+                </p>
 
                 <div className="mt-5 space-y-3 text-sm text-neutral-600">
                   <p className="flex items-center gap-2">
                     <Scissors className="size-4" />
-                    {member[2]}
+                    Services assignment coming soon
                   </p>
                   <p className="flex items-center gap-2">
                     <Calendar className="size-4" />
-                    {member[3]}
+                    {member.appointments.length} appointments
                   </p>
                 </div>
 

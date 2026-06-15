@@ -1,19 +1,41 @@
 import { Clock, DollarSign, Plus, Scissors } from "lucide-react";
 
+import { formatMoneyFromCents } from "@/lib/format";
+import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const services = [
-  ["Haircut", "$35", "30 min", "Active"],
-  ["Fade", "$40", "35 min", "Active"],
-  ["Fade + Beard", "$55", "50 min", "Active"],
-  ["Beard Trim", "$20", "20 min", "Active"],
-  ["Haircut + Beard", "$50", "45 min", "Active"],
-];
+export default async function ServicesPage() {
+  const business = await getDemoBusiness();
 
-export default function ServicesPage() {
+  const services = await prisma.service.findMany({
+    where: {
+      businessId: business.id,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+
+  const averagePrice =
+    services.length > 0
+      ? services.reduce((total, service) => total + service.priceCents, 0) /
+        services.length
+      : 0;
+
+  const averageDuration =
+    services.length > 0
+      ? Math.round(
+          services.reduce(
+            (total, service) => total + service.durationMinutes,
+            0,
+          ) / services.length,
+        )
+      : 0;
+
   return (
     <div>
       <ModuleHeader
@@ -29,9 +51,17 @@ export default function ServicesPage() {
 
       <main className="space-y-6 p-6 lg:p-10">
         <section className="grid gap-5 md:grid-cols-3">
-          <Summary title="Active services" value="5" />
-          <Summary title="Average price" value="$40" />
-          <Summary title="Average duration" value="36m" />
+          <Summary
+            title="Active services"
+            value={services
+              .filter((service) => service.isActive)
+              .length.toString()}
+          />
+          <Summary
+            title="Average price"
+            value={formatMoneyFromCents(averagePrice)}
+          />
+          <Summary title="Average duration" value={`${averageDuration}m`} />
         </section>
 
         <Card className="rounded-2xl border-neutral-200 shadow-none">
@@ -42,26 +72,31 @@ export default function ServicesPage() {
           <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {services.map((service) => (
               <div
-                key={service[0]}
+                key={service.id}
                 className="rounded-2xl border border-neutral-200 p-5"
               >
                 <div className="flex items-start justify-between">
                   <div className="grid size-11 place-items-center rounded-xl border border-neutral-200">
                     <Scissors className="size-5" />
                   </div>
-                  <Badge variant="secondary">{service[3]}</Badge>
+                  <Badge variant="secondary">
+                    {service.isActive ? "Active" : "Inactive"}
+                  </Badge>
                 </div>
 
-                <h3 className="mt-5 text-lg font-bold">{service[0]}</h3>
+                <h3 className="mt-5 text-lg font-bold">{service.name}</h3>
+                <p className="mt-2 text-sm leading-6 text-neutral-600">
+                  {service.description ?? "No description"}
+                </p>
 
                 <div className="mt-5 grid gap-3 text-sm text-neutral-600">
                   <p className="flex items-center gap-2">
                     <DollarSign className="size-4" />
-                    {service[1]}
+                    {formatMoneyFromCents(service.priceCents)}
                   </p>
                   <p className="flex items-center gap-2">
                     <Clock className="size-4" />
-                    {service[2]}
+                    {service.durationMinutes} min
                   </p>
                 </div>
 

@@ -1,50 +1,29 @@
 import { Mail, Phone, Plus, Search, Users } from "lucide-react";
 
+import { getInitials } from "@/lib/format";
+import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-const customers = [
-  [
-    "Dwayne Carter",
-    "dwayne@example.com",
-    "+1 519 555 0134",
-    "12 bookings",
-    "Active",
-  ],
-  [
-    "Marvin McKinney",
-    "marvin@example.com",
-    "+1 519 555 0188",
-    "8 bookings",
-    "Active",
-  ],
-  [
-    "Cody Fisher",
-    "cody@example.com",
-    "+1 519 555 0199",
-    "5 bookings",
-    "Active",
-  ],
-  [
-    "Brooklyn Simmons",
-    "brooklyn@example.com",
-    "+1 519 555 0110",
-    "3 bookings",
-    "New",
-  ],
-  [
-    "Esther Howard",
-    "esther@example.com",
-    "+1 519 555 0105",
-    "2 bookings",
-    "New",
-  ],
-];
+export default async function CustomersPage() {
+  const business = await getDemoBusiness();
 
-export default function CustomersPage() {
+  const customers = await prisma.customer.findMany({
+    where: {
+      businessId: business.id,
+    },
+    include: {
+      appointments: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
   return (
     <div>
       <ModuleHeader
@@ -60,9 +39,25 @@ export default function CustomersPage() {
 
       <main className="space-y-6 p-6 lg:p-10">
         <section className="grid gap-5 md:grid-cols-3">
-          <Summary title="Total customers" value="243" />
-          <Summary title="New this month" value="18" />
-          <Summary title="Returning customers" value="76%" />
+          <Summary
+            title="Total customers"
+            value={customers.length.toString()}
+          />
+          <Summary
+            title="With email"
+            value={customers
+              .filter((customer) => customer.email)
+              .length.toString()}
+          />
+          <Summary
+            title="Total bookings"
+            value={customers
+              .reduce(
+                (total, customer) => total + customer.appointments.length,
+                0,
+              )
+              .toString()}
+          />
         </section>
 
         <Card className="rounded-2xl border-neutral-200 shadow-none">
@@ -82,21 +77,18 @@ export default function CustomersPage() {
           <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {customers.map((customer) => (
               <div
-                key={customer[1]}
+                key={customer.id}
                 className="rounded-2xl border border-neutral-200 p-5"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="grid size-11 place-items-center rounded-full bg-neutral-100 font-bold">
-                      {customer[0]
-                        .split(" ")
-                        .map((part) => part[0])
-                        .join("")}
+                      {getInitials(customer.name)}
                     </div>
                     <div>
-                      <p className="font-semibold">{customer[0]}</p>
+                      <p className="font-semibold">{customer.name}</p>
                       <Badge variant="secondary" className="mt-1">
-                        {customer[4]}
+                        {customer.appointments.length > 1 ? "Returning" : "New"}
                       </Badge>
                     </div>
                   </div>
@@ -105,15 +97,15 @@ export default function CustomersPage() {
                 <div className="mt-5 space-y-3 text-sm text-neutral-600">
                   <p className="flex items-center gap-2">
                     <Mail className="size-4" />
-                    {customer[1]}
+                    {customer.email ?? "No email"}
                   </p>
                   <p className="flex items-center gap-2">
                     <Phone className="size-4" />
-                    {customer[2]}
+                    {customer.phone}
                   </p>
                   <p className="flex items-center gap-2">
                     <Users className="size-4" />
-                    {customer[3]}
+                    {customer.appointments.length} bookings
                   </p>
                 </div>
 
