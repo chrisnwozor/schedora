@@ -1,0 +1,141 @@
+import { Mail, Phone, Plus, Search, Users } from "lucide-react";
+
+import { ModuleHeader } from "@/components/modules/module-header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+
+const customers = [
+  [
+    "Dwayne Carter",
+    "dwayne@example.com",
+    "+1 519 555 0134",
+    "12 bookings",
+    "Active",
+  ],
+  [
+    "Marvin McKinney",
+    "marvin@example.com",
+    "+1 519 555 0188",
+    "8 bookings",
+    "Active",
+  ],
+  [
+    "Cody Fisher",
+    "cody@example.com",
+    "+1 519 555 0199",
+    "5 bookings",
+    "Active",
+  ],
+  [
+    "Brooklyn Simmons",
+    "brooklyn@example.com",
+    "+1 519 555 0110",
+    "3 bookings",
+    "New",
+  ],
+  [
+    "Esther Howard",
+    "esther@example.com",
+    "+1 519 555 0105",
+    "2 bookings",
+    "New",
+  ],
+];
+
+export default function CustomersPage() {
+  return (
+    <div>
+      <ModuleHeader
+        title="Customers"
+        description="View customer records, contact information, and booking history."
+        action={
+          <Button className="bg-black text-white hover:bg-neutral-800">
+            <Plus className="mr-2 size-4" />
+            Add customer
+          </Button>
+        }
+      />
+
+      <main className="space-y-6 p-6 lg:p-10">
+        <section className="grid gap-5 md:grid-cols-3">
+          <Summary title="Total customers" value="243" />
+          <Summary title="New this month" value="18" />
+          <Summary title="Returning customers" value="76%" />
+        </section>
+
+        <Card className="rounded-2xl border-neutral-200 shadow-none">
+          <CardHeader>
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <CardTitle>Customer records</CardTitle>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-500" />
+                <Input
+                  placeholder="Search customers..."
+                  className="h-11 pl-10 sm:w-80"
+                />
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {customers.map((customer) => (
+              <div
+                key={customer[1]}
+                className="rounded-2xl border border-neutral-200 p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="grid size-11 place-items-center rounded-full bg-neutral-100 font-bold">
+                      {customer[0]
+                        .split(" ")
+                        .map((part) => part[0])
+                        .join("")}
+                    </div>
+                    <div>
+                      <p className="font-semibold">{customer[0]}</p>
+                      <Badge variant="secondary" className="mt-1">
+                        {customer[4]}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-3 text-sm text-neutral-600">
+                  <p className="flex items-center gap-2">
+                    <Mail className="size-4" />
+                    {customer[1]}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Phone className="size-4" />
+                    {customer[2]}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Users className="size-4" />
+                    {customer[3]}
+                  </p>
+                </div>
+
+                <Button variant="outline" className="mt-5 w-full">
+                  View profile
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}
+
+function Summary({ title, value }: { title: string; value: string }) {
+  return (
+    <Card className="rounded-2xl border-neutral-200 shadow-none">
+      <CardContent className="p-6">
+        <p className="text-sm text-neutral-600">{title}</p>
+        <p className="mt-3 text-4xl font-bold">{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
