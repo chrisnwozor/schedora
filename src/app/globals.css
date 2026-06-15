@@ -128,3 +128,14 @@
     @apply font-sans;
   }
 }
+
+/* added by me */
+html,
+body {
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+body {
+  background: #ffffff;
+  color: #000000;
+}
