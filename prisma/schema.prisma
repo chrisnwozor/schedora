@@ -1,0 +1,252 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PlatformRole {
+  USER
+  PLATFORM_ADMIN
+}
+
+enum BusinessRole {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+enum BusinessStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+model User {
+  id           String       @id @default(cuid())
+  clerkUserId String?      @unique
+  email        String       @unique
+  name         String?
+  platformRole PlatformRole @default(USER)
+
+  ownedBusinesses Business[]           @relation("BusinessOwner")
+  memberships     BusinessMembership[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Business {
+  id           String         @id @default(cuid())
+  name         String
+  slug         String         @unique
+  businessType String
+  phone        String?
+  email        String?
+  address      String?
+  description  String?
+  status       BusinessStatus @default(ACTIVE)
+
+  ownerUserId String
+  owner       User @relation("BusinessOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  memberships       BusinessMembership[]
+  services          Service[]
+  staffMembers      StaffMember[]
+  customers         Customer[]
+  appointments      Appointment[]
+  availabilityRules AvailabilityRule[]
+  subscription      Subscription?
+  bookingUsage      BookingUsage[]
+  adminNotes        AdminNote[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("businesses")
+}
+
+model BusinessMembership {
+  id         String       @id @default(cuid())
+  userId     String
+  businessId String
+  role       BusinessRole @default(STAFF)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, businessId])
+  @@index([businessId])
+  @@map("business_memberships")
+}
+
+model Service {
+  id              String  @id @default(cuid())
+  businessId      String
+  name            String
+  description     String?
+  priceCents      Int
+  durationMinutes Int
+  isActive        Boolean @default(true)
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId, isActive])
+  @@map("services")
+}
+
+model StaffMember {
+  id         String  @id @default(cuid())
+  businessId String
+  name       String
+  email      String?
+  phone      String?
+  roleTitle  String?
+  isActive   Boolean @default(true)
+
+  business          Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointments      Appointment[]
+  availabilityRules AvailabilityRule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId, isActive])
+  @@map("staff_members")
+}
+
+model Customer {
+  id         String  @id @default(cuid())
+  businessId String
+  name       String
+  phone      String
+  email      String?
+  notes      String?
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId, phone])
+  @@map("customers")
+}
+
+model Appointment {
+  id            String            @id @default(cuid())
+  businessId    String
+  customerId    String
+  serviceId     String
+  staffMemberId String?
+  date          DateTime
+  startTime     String
+  endTime       String
+  status        AppointmentStatus @default(PENDING)
+  notes         String?
+
+  business    Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  service     Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId, date])
+  @@index([businessId, status])
+  @@map("appointments")
+}
+
+model AvailabilityRule {
+  id            String  @id @default(cuid())
+  businessId    String
+  staffMemberId String?
+  dayOfWeek     Int
+  startTime     String
+  endTime       String
+  isClosed      Boolean @default(false)
+
+  business    Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId, dayOfWeek])
+  @@map("availability_rules")
+}
+
+model Subscription {
+  id         String             @id @default(cuid())
+  businessId String             @unique
+  plan       SubscriptionPlan   @default(FREE)
+  status     SubscriptionStatus @default(ACTIVE)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subscriptions")
+}
+
+model BookingUsage {
+  id           String @id @default(cuid())
+  businessId   String
+  month        Int
+  year         Int
+  bookingCount Int    @default(0)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([businessId, month, year])
+  @@index([businessId, month, year])
+  @@map("booking_usage")
+}
+
+model AdminNote {
+  id         String @id @default(cuid())
+  businessId String
+  note       String
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([businessId])
+  @@map("admin_notes")
+}
