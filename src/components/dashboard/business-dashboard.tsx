@@ -5,111 +5,66 @@ import {
   Clock,
   Copy,
   LinkIcon,
-  Plus,
-  Scissors,
   Search,
   Users,
   Zap,
 } from "lucide-react";
 
+import { formatDate, formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-const metrics = [
-  {
-    label: "Today's appointments",
-    value: "12",
-    helper: "3 pending",
-    icon: Calendar,
-  },
-  {
-    label: "Upcoming appointments",
-    value: "28",
-    helper: "Next 7 days",
-    icon: Clock,
-  },
-  {
-    label: "Total bookings",
-    value: "68",
-    helper: "This month",
-    icon: BarChart3,
-  },
-  {
-    label: "Total customers",
-    value: "243",
-    helper: "18 new this month",
-    icon: Users,
-  },
-];
+type DashboardData = Awaited<
+  ReturnType<
+    typeof import("@/server/dashboard/get-dashboard-data").getDashboardData
+  >
+>;
 
-const todaySchedule = [
-  ["9:00 AM", "Dwayne Carter", "Fade + Beard", "Confirmed"],
-  ["10:30 AM", "Marvin McKinney", "Haircut", "Confirmed"],
-  ["12:00 PM", "Cody Fisher", "Fade", "Pending"],
-  ["1:30 PM", "Brooklyn Simmons", "Haircut + Beard", "Completed"],
-  ["3:00 PM", "Esther Howard", "Beard Trim", "Confirmed"],
-];
+export function BusinessDashboard({ data }: { data: DashboardData }) {
+  const usageLimitText = data.usage.limit
+    ? data.usage.limit.toString()
+    : "Unlimited";
+  const usageLabel = data.usage.limit
+    ? `${data.usage.used} / ${data.usage.limit} bookings`
+    : `${data.usage.used} bookings`;
 
-const recentAppointments = [
-  [
-    "DC",
-    "Dwayne Carter",
-    "Fade + Beard",
-    "James",
-    "May 19, 2025",
-    "9:00 AM",
-    "Confirmed",
-  ],
-  [
-    "MM",
-    "Marvin McKinney",
-    "Haircut",
-    "James",
-    "May 19, 2025",
-    "10:30 AM",
-    "Confirmed",
-  ],
-  ["CF", "Cody Fisher", "Fade", "Mike", "May 19, 2025", "12:00 PM", "Pending"],
-  [
-    "BS",
-    "Brooklyn Simmons",
-    "Haircut + Beard",
-    "James",
-    "May 19, 2025",
-    "1:30 PM",
-    "Completed",
-  ],
-  [
-    "EH",
-    "Esther Howard",
-    "Beard Trim",
-    "Mike",
-    "May 19, 2025",
-    "3:00 PM",
-    "Confirmed",
-  ],
-];
+  const metrics = [
+    {
+      label: "Today's appointments",
+      value: data.metrics.todayAppointments.toString(),
+      helper: `${data.metrics.pendingToday} pending`,
+      icon: Calendar,
+    },
+    {
+      label: "Upcoming appointments",
+      value: data.metrics.upcomingAppointments.toString(),
+      helper: "Next appointments",
+      icon: Clock,
+    },
+    {
+      label: "Total bookings",
+      value: data.metrics.monthlyBookings.toString(),
+      helper: "All seeded bookings",
+      icon: BarChart3,
+    },
+    {
+      label: "Total customers",
+      value: data.metrics.totalCustomers.toString(),
+      helper: "Customer records",
+      icon: Users,
+    },
+  ];
 
-const quickActions = [
-  { label: "Add appointment", icon: Calendar },
-  { label: "Add customer", icon: Users },
-  { label: "Add service", icon: Scissors },
-  { label: "Add staff member", icon: Users },
-  { label: "Set availability", icon: Clock },
-  { label: "View booking page", icon: ArrowUpRight },
-];
-
-export function BusinessDashboard() {
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b border-neutral-200 px-6 py-6 lg:px-10">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
             <p className="mt-2 text-neutral-600">
-              Here&apos;s what&apos;s happening at Glow Barbershop today.
+              Here&apos;s what&apos;s happening at {data.business.name} today.
             </p>
           </div>
 
@@ -164,17 +119,24 @@ export function BusinessDashboard() {
             <CardHeader>
               <CardTitle>Today&apos;s schedule</CardTitle>
             </CardHeader>
+
             <CardContent>
               <div className="space-y-5">
-                {todaySchedule.map((item) => (
+                {data.todaySchedule.map((item) => (
                   <div
-                    key={item.join("-")}
+                    key={item.id}
                     className="grid grid-cols-[80px_1fr_1fr_auto] items-center gap-4 text-sm"
                   >
-                    <span className="text-neutral-600">{item[0]}</span>
-                    <span className="font-medium">{item[1]}</span>
-                    <span className="text-neutral-600">{item[2]}</span>
-                    <Badge variant="secondary">{item[3]}</Badge>
+                    <span className="text-neutral-600">
+                      {formatTime(item.startTime)}
+                    </span>
+                    <span className="font-medium">{item.customer.name}</span>
+                    <span className="text-neutral-600">
+                      {item.service.name}
+                    </span>
+                    <Badge variant="secondary">
+                      {cleanStatus(item.status)}
+                    </Badge>
                   </div>
                 ))}
               </div>
@@ -193,17 +155,27 @@ export function BusinessDashboard() {
               <CardHeader>
                 <CardTitle>Monthly booking usage</CardTitle>
               </CardHeader>
+
               <CardContent>
-                <p className="text-4xl font-bold">68 / 100 bookings</p>
+                <p className="text-4xl font-bold">{usageLabel}</p>
 
                 <div className="mt-7 h-3 rounded-full bg-neutral-200">
-                  <div className="h-3 w-[68%] rounded-full bg-black" />
+                  <div
+                    className="h-3 rounded-full bg-black"
+                    style={{
+                      width: `${Math.min(data.usage.percentage, 100)}%`,
+                    }}
+                  />
                 </div>
 
-                <div className="mt-2 text-right text-sm font-semibold">68%</div>
+                <div className="mt-2 text-right text-sm font-semibold">
+                  {data.usage.limit ? `${data.usage.percentage}%` : "Unlimited"}
+                </div>
 
                 <p className="mt-5 leading-7 text-neutral-600">
-                  You have 32 bookings remaining on the Starter plan.
+                  {data.usage.limit
+                    ? `You have ${data.usage.remaining} bookings remaining on the ${cleanStatus(data.usage.plan)} plan.`
+                    : `You have unlimited bookings on the ${cleanStatus(data.usage.plan)} plan.`}
                 </p>
 
                 <Button variant="outline" className="mt-8 h-11 w-full">
@@ -217,17 +189,20 @@ export function BusinessDashboard() {
                 <CardTitle>Quick actions</CardTitle>
                 <Zap className="size-5" />
               </CardHeader>
+
               <CardContent>
                 <div className="divide-y divide-neutral-200">
-                  {quickActions.map((action) => (
+                  {[
+                    "Add appointment",
+                    "Add customer",
+                    "Add service",
+                    "Set availability",
+                  ].map((action) => (
                     <button
-                      key={action.label}
+                      key={action}
                       className="flex w-full items-center justify-between py-4 text-left text-sm font-medium"
                     >
-                      <span className="flex items-center gap-3">
-                        <action.icon className="size-5" />
-                        {action.label}
-                      </span>
+                      <span>{action}</span>
                       <span>›</span>
                     </button>
                   ))}
@@ -242,6 +217,7 @@ export function BusinessDashboard() {
             <CardHeader>
               <CardTitle>Recent appointments</CardTitle>
             </CardHeader>
+
             <CardContent className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-sm">
                 <thead>
@@ -254,32 +230,37 @@ export function BusinessDashboard() {
                     <th className="py-3 font-medium">Status</th>
                   </tr>
                 </thead>
+
                 <tbody>
-                  {recentAppointments.map((appointment) => (
+                  {data.recentAppointments.map((appointment) => (
                     <tr
-                      key={appointment.join("-")}
+                      key={appointment.id}
                       className="border-b border-neutral-100"
                     >
                       <td className="py-4">
                         <div className="flex items-center gap-3">
                           <div className="grid size-8 place-items-center rounded-full bg-neutral-100 text-xs font-semibold">
-                            {appointment[0]}
+                            {getInitials(appointment.customer.name)}
                           </div>
-                          <span className="font-medium">{appointment[1]}</span>
+                          <span className="font-medium">
+                            {appointment.customer.name}
+                          </span>
                         </div>
                       </td>
-                      <td className="py-4">{appointment[2]}</td>
+                      <td className="py-4">{appointment.service.name}</td>
                       <td className="py-4 text-neutral-600">
-                        {appointment[3]}
+                        {appointment.staffMember?.name ?? "Unassigned"}
                       </td>
                       <td className="py-4 text-neutral-600">
-                        {appointment[4]}
+                        {formatDate(appointment.date)}
                       </td>
                       <td className="py-4 text-neutral-600">
-                        {appointment[5]}
+                        {formatTime(appointment.startTime)}
                       </td>
                       <td className="py-4">
-                        <Badge variant="secondary">{appointment[6]}</Badge>
+                        <Badge variant="secondary">
+                          {cleanStatus(appointment.status)}
+                        </Badge>
                       </td>
                     </tr>
                   ))}
@@ -299,6 +280,7 @@ export function BusinessDashboard() {
                 <CardTitle>Booking link</CardTitle>
                 <LinkIcon className="size-5" />
               </CardHeader>
+
               <CardContent>
                 <p className="leading-7 text-neutral-600">
                   Your customers can book appointments using your public booking
@@ -307,9 +289,7 @@ export function BusinessDashboard() {
 
                 <div className="mt-5 flex items-center gap-3 rounded-xl border border-dashed border-neutral-300 p-4 text-sm">
                   <LinkIcon className="size-4 shrink-0" />
-                  <span className="truncate">
-                    schedora.app/book/glowbarbershop
-                  </span>
+                  <span className="truncate">{data.bookingLink}</span>
                 </div>
 
                 <div className="mt-5 grid grid-cols-2 gap-3">
@@ -324,22 +304,17 @@ export function BusinessDashboard() {
 
             <Card className="rounded-2xl border-neutral-200 shadow-none">
               <CardHeader>
-                <CardTitle>Upcoming appointments</CardTitle>
+                <CardTitle>Plan</CardTitle>
               </CardHeader>
+
               <CardContent>
-                <div className="flex items-center justify-between rounded-xl border border-neutral-200 p-4">
-                  <div className="grid size-14 place-items-center rounded-xl bg-neutral-100 text-center text-xs font-bold">
-                    MAY
-                    <br />
-                    20
-                  </div>
-
-                  <div>
-                    <p className="font-semibold">8 appointments</p>
-                    <p className="text-sm text-neutral-500">Tomorrow</p>
-                  </div>
-
-                  <ArrowUpRight className="size-4" />
+                <div className="rounded-xl border border-neutral-200 p-4">
+                  <p className="font-semibold">
+                    {cleanStatus(data.usage.plan)} Plan
+                  </p>
+                  <p className="mt-2 text-sm text-neutral-500">
+                    Booking limit: {usageLimitText}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -348,4 +323,20 @@ export function BusinessDashboard() {
       </div>
     </div>
   );
+}
+
+function cleanStatus(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 }
