@@ -1,12 +1,5 @@
 import "dotenv/config";
-import {
-  AppointmentStatus,
-  BusinessRole,
-  PlatformRole,
-  PrismaClient,
-  SubscriptionPlan,
-  SubscriptionStatus,
-} from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const adapter = new PrismaPg({
@@ -38,7 +31,7 @@ async function main() {
     data: {
       name: "Ugochukwu",
       email: "owner@schedora.app",
-      platformRole: PlatformRole.PLATFORM_ADMIN,
+      platformRole: "PLATFORM_ADMIN",
     },
   });
 
@@ -62,15 +55,15 @@ async function main() {
     data: {
       userId: owner.id,
       businessId: business.id,
-      role: BusinessRole.OWNER,
+      role: "OWNER",
     },
   });
 
   await prisma.subscription.create({
     data: {
       businessId: business.id,
-      plan: SubscriptionPlan.STARTER,
-      status: SubscriptionStatus.ACTIVE,
+      plan: "STARTER",
+      status: "ACTIVE",
     },
   });
 
@@ -229,7 +222,7 @@ async function main() {
         date: appointmentDate,
         startTime: "09:00",
         endTime: "09:50",
-        status: AppointmentStatus.CONFIRMED,
+        status: "CONFIRMED",
       },
       {
         businessId: business.id,
@@ -239,7 +232,7 @@ async function main() {
         date: appointmentDate,
         startTime: "10:30",
         endTime: "11:00",
-        status: AppointmentStatus.CONFIRMED,
+        status: "CONFIRMED",
       },
       {
         businessId: business.id,
@@ -249,7 +242,7 @@ async function main() {
         date: appointmentDate,
         startTime: "12:00",
         endTime: "12:35",
-        status: AppointmentStatus.PENDING,
+        status: "PENDING",
       },
       {
         businessId: business.id,
@@ -259,7 +252,7 @@ async function main() {
         date: appointmentDate,
         startTime: "13:30",
         endTime: "14:20",
-        status: AppointmentStatus.COMPLETED,
+        status: "COMPLETED",
       },
       {
         businessId: business.id,
@@ -269,7 +262,7 @@ async function main() {
         date: appointmentDate,
         startTime: "15:00",
         endTime: "15:20",
-        status: AppointmentStatus.CONFIRMED,
+        status: "CONFIRMED",
       },
     ],
   });
