@@ -1,3 +1,4 @@
+import { updateBusinessStatusAction } from "@/server/actions/admin-actions";
 import { getAdminBusinessesData } from "@/server/admin/get-admin-data";
 import { cleanEnum, formatDate } from "@/lib/format";
 import { Building2, Filter, Plus, Search } from "lucide-react";
@@ -143,9 +144,28 @@ export default async function AdminBusinessesPage() {
                       {formatDate(business.createdAt)}
                     </td>
                     <td className="py-4">
-                      <Button variant="outline" size="sm">
-                        Manage
-                      </Button>
+                      <form action={updateBusinessStatusAction}>
+                        <input
+                          type="hidden"
+                          name="businessId"
+                          value={business.id}
+                        />
+                        <input
+                          type="hidden"
+                          name="status"
+                          value={
+                            business.status === "SUSPENDED"
+                              ? "ACTIVE"
+                              : "SUSPENDED"
+                          }
+                        />
+
+                        <Button variant="outline" size="sm" type="submit">
+                          {business.status === "SUSPENDED"
+                            ? "Activate"
+                            : "Suspend"}
+                        </Button>
+                      </form>
                     </td>
                   </tr>
                 ))}

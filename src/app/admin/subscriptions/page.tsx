@@ -1,3 +1,4 @@
+import { changeSubscriptionPlanAction } from "@/server/actions/admin-actions";
 import { getAdminSubscriptionsData } from "@/server/admin/get-admin-data";
 import { cleanEnum } from "@/lib/format";
 import { CreditCard, Filter, Search } from "lucide-react";
@@ -112,9 +113,30 @@ export default async function AdminSubscriptionsPage() {
                         </Badge>
                       </td>
                       <td className="py-4">
-                        <Button variant="outline" size="sm">
-                          Change plan
-                        </Button>
+                        <form
+                          action={changeSubscriptionPlanAction}
+                          className="flex items-center gap-2"
+                        >
+                          <input
+                            type="hidden"
+                            name="businessId"
+                            value={subscription.businessId}
+                          />
+
+                          <select
+                            name="plan"
+                            defaultValue={subscription.plan}
+                            className="h-9 rounded-lg border border-neutral-200 bg-white px-2 text-sm outline-none"
+                          >
+                            <option value="FREE">Free</option>
+                            <option value="STARTER">Starter</option>
+                            <option value="PRO">Pro</option>
+                          </select>
+
+                          <Button variant="outline" size="sm" type="submit">
+                            Save
+                          </Button>
+                        </form>
                       </td>
                     </tr>
                   );
