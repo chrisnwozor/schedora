@@ -1,3 +1,4 @@
+import { updateAppointmentStatusAction } from "@/server/actions/business-records";
 import Link from "next/link";
 import { Calendar, Filter, Plus, Search } from "lucide-react";
 
@@ -135,9 +136,32 @@ export default async function AppointmentsPage() {
                       {formatTime(appointment.startTime)}
                     </td>
                     <td className="py-4">
-                      <Badge variant="secondary">
-                        {cleanEnum(appointment.status)}
-                      </Badge>
+                      <form
+                        action={updateAppointmentStatusAction}
+                        className="flex items-center gap-2"
+                      >
+                        <input
+                          type="hidden"
+                          name="appointmentId"
+                          value={appointment.id}
+                        />
+
+                        <select
+                          name="status"
+                          defaultValue={appointment.status}
+                          className="h-9 rounded-lg border border-neutral-200 bg-white px-2 text-sm outline-none"
+                        >
+                          <option value="PENDING">Pending</option>
+                          <option value="CONFIRMED">Confirmed</option>
+                          <option value="CANCELLED">Cancelled</option>
+                          <option value="COMPLETED">Completed</option>
+                          <option value="NO_SHOW">No show</option>
+                        </select>
+
+                        <Button variant="outline" size="sm" type="submit">
+                          Save
+                        </Button>
+                      </form>
                     </td>
                     <td className="py-4">
                       <Button variant="outline" size="sm">

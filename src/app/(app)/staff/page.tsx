@@ -1,3 +1,4 @@
+import { toggleStaffStatusAction } from "@/server/actions/business-records";
 import Link from "next/link";
 import { Calendar, Plus, Scissors } from "lucide-react";
 
@@ -93,9 +94,18 @@ export default async function StaffPage() {
                   </p>
                 </div>
 
-                <Button variant="outline" className="mt-6 w-full">
-                  Manage staff
-                </Button>
+                <form action={toggleStaffStatusAction} className="mt-6">
+                  <input type="hidden" name="staffMemberId" value={member.id} />
+                  <input
+                    type="hidden"
+                    name="isActive"
+                    value={member.isActive ? "false" : "true"}
+                  />
+
+                  <Button variant="outline" type="submit" className="w-full">
+                    {member.isActive ? "Deactivate staff" : "Activate staff"}
+                  </Button>
+                </form>
               </div>
             ))}
           </CardContent>

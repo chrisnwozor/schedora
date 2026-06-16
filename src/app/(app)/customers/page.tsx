@@ -1,3 +1,4 @@
+import { updateCustomerNotesAction } from "@/server/actions/business-records";
 import Link from "next/link";
 import { Mail, Phone, Plus, Search, Users } from "lucide-react";
 
@@ -115,9 +116,23 @@ export default async function CustomersPage() {
                   </p>
                 </div>
 
-                <Button variant="outline" className="mt-5 w-full">
-                  View profile
-                </Button>
+                <form
+                  action={updateCustomerNotesAction}
+                  className="mt-5 space-y-3"
+                >
+                  <input type="hidden" name="customerId" value={customer.id} />
+
+                  <textarea
+                    name="notes"
+                    defaultValue={customer.notes ?? ""}
+                    placeholder="Add customer notes..."
+                    className="min-h-24 w-full rounded-xl border border-neutral-200 px-4 py-3 text-sm outline-none"
+                  />
+
+                  <Button variant="outline" type="submit" className="w-full">
+                    Save notes
+                  </Button>
+                </form>
               </div>
             ))}
           </CardContent>

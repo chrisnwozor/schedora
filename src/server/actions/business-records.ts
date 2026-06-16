@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
@@ -212,4 +213,104 @@ export async function createAppointmentAction(formData: FormData) {
   ]);
 
   redirect("/appointments");
+}
+
+export async function updateAppointmentStatusAction(formData: FormData) {
+  const { business } = await getActiveBusiness();
+
+  const appointmentId = required(
+    formData.get("appointmentId"),
+    "Appointment ID",
+  );
+  const status = required(formData.get("status"), "Status");
+
+  if (
+    !["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"].includes(
+      status,
+    )
+  ) {
+    throw new Error("Invalid appointment status.");
+  }
+
+  await prisma.appointment.update({
+    where: {
+      id: appointmentId,
+      businessId: business.id,
+    },
+    data: {
+      status: status as
+        | "PENDING"
+        | "CONFIRMED"
+        | "CANCELLED"
+        | "COMPLETED"
+        | "NO_SHOW",
+    },
+  });
+
+  revalidatePath("/appointments");
+  revalidatePath("/dashboard");
+}
+
+export async function toggleServiceStatusAction(formData: FormData) {
+  const { business } = await getActiveBusiness();
+
+  const serviceId = required(formData.get("serviceId"), "Service ID");
+  const isActive =
+    required(formData.get("isActive"), "Service status") === "true";
+
+  await prisma.service.update({
+    where: {
+      id: serviceId,
+      businessId: business.id,
+    },
+    data: {
+      isActive,
+    },
+  });
+
+  revalidatePath("/services");
+  revalidatePath("/booking-page");
+}
+
+export async function toggleStaffStatusAction(formData: FormData) {
+  const { business } = await getActiveBusiness();
+
+  const staffMemberId = required(
+    formData.get("staffMemberId"),
+    "Staff member ID",
+  );
+  const isActive =
+    required(formData.get("isActive"), "Staff status") === "true";
+
+  await prisma.staffMember.update({
+    where: {
+      id: staffMemberId,
+      businessId: business.id,
+    },
+    data: {
+      isActive,
+    },
+  });
+
+  revalidatePath("/staff");
+  revalidatePath("/appointments/new");
+}
+
+export async function updateCustomerNotesAction(formData: FormData) {
+  const { business } = await getActiveBusiness();
+
+  const customerId = required(formData.get("customerId"), "Customer ID");
+  const notes = optional(formData.get("notes"));
+
+  await prisma.customer.update({
+    where: {
+      id: customerId,
+      businessId: business.id,
+    },
+    data: {
+      notes,
+    },
+  });
+
+  revalidatePath("/customers");
 }

@@ -1,3 +1,4 @@
+import { toggleServiceStatusAction } from "@/server/actions/business-records";
 import Link from "next/link";
 import { Clock, DollarSign, Plus, Scissors } from "lucide-react";
 
@@ -108,7 +109,18 @@ export default async function ServicesPage() {
 
                 <div className="mt-6 grid grid-cols-2 gap-3">
                   <Button variant="outline">Edit</Button>
-                  <Button variant="outline">Disable</Button>
+                  <form action={toggleServiceStatusAction}>
+                    <input type="hidden" name="serviceId" value={service.id} />
+                    <input
+                      type="hidden"
+                      name="isActive"
+                      value={service.isActive ? "false" : "true"}
+                    />
+
+                    <Button variant="outline" type="submit" className="w-full">
+                      {service.isActive ? "Disable" : "Enable"}
+                    </Button>
+                  </form>
                 </div>
               </div>
             ))}
