@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { CopyButton } from "@/components/modules/copy-button";
 import {
   ArrowUpRight,
   BarChart3,
@@ -69,23 +71,33 @@ export function BusinessDashboard({ data }: { data: DashboardData }) {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative">
+            <form action="/appointments" className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-500" />
               <Input
+                name="search"
                 placeholder="Search customers or appointments..."
                 className="h-11 w-full pl-10 sm:w-80"
               />
-            </div>
+            </form>
 
-            <Button className="h-11 bg-black text-white hover:bg-neutral-800">
-              <Calendar className="mr-2 size-4" />
-              New appointment
+            <Button
+              asChild
+              className="h-11 bg-black text-white hover:bg-neutral-800"
+            >
+              <Link
+                href="/appointments/new"
+                className="inline-flex items-center gap-2"
+              >
+                <Calendar className="size-4" />
+                New appointment
+              </Link>
             </Button>
 
-            <Button variant="outline" className="h-11">
-              <LinkIcon className="mr-2 size-4" />
-              Copy booking link
-            </Button>
+            <CopyButton
+              value={data.bookingLink}
+              label="Copy booking link"
+              className="h-11 border border-neutral-200 bg-white text-black hover:bg-neutral-50"
+            />
           </div>
         </div>
       </header>
@@ -178,8 +190,8 @@ export function BusinessDashboard({ data }: { data: DashboardData }) {
                     : `You have unlimited bookings on the ${cleanStatus(data.usage.plan)} plan.`}
                 </p>
 
-                <Button variant="outline" className="mt-8 h-11 w-full">
-                  Upgrade plan
+                <Button asChild variant="outline" className="mt-8 h-11 w-full">
+                  <Link href="/subscription">Upgrade plan</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -193,18 +205,19 @@ export function BusinessDashboard({ data }: { data: DashboardData }) {
               <CardContent>
                 <div className="divide-y divide-neutral-200">
                   {[
-                    "Add appointment",
-                    "Add customer",
-                    "Add service",
-                    "Set availability",
+                    { label: "Add appointment", href: "/appointments/new" },
+                    { label: "Add customer", href: "/customers/new" },
+                    { label: "Add service", href: "/services/new" },
+                    { label: "Set availability", href: "/availability" },
                   ].map((action) => (
-                    <button
-                      key={action}
-                      className="flex w-full items-center justify-between py-4 text-left text-sm font-medium"
+                    <Link
+                      key={action.href}
+                      href={action.href}
+                      className="flex w-full items-center justify-between py-4 text-left text-sm font-medium hover:text-neutral-600"
                     >
-                      <span>{action}</span>
+                      <span>{action.label}</span>
                       <span>›</span>
-                    </button>
+                    </Link>
                   ))}
                 </div>
               </CardContent>
@@ -293,11 +306,15 @@ export function BusinessDashboard({ data }: { data: DashboardData }) {
                 </div>
 
                 <div className="mt-5 grid grid-cols-2 gap-3">
-                  <Button className="bg-black text-white hover:bg-neutral-800">
-                    <Copy className="mr-2 size-4" />
-                    Copy link
+                  <CopyButton
+                    value={data.bookingLink}
+                    label="Copy link"
+                    className="bg-black text-white hover:bg-neutral-800"
+                  />
+
+                  <Button asChild variant="outline">
+                    <Link href={`/book/${data.business.slug}`}>Open page</Link>
                   </Button>
-                  <Button variant="outline">Open page</Button>
                 </div>
               </CardContent>
             </Card>

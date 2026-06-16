@@ -314,3 +314,63 @@ export async function updateCustomerNotesAction(formData: FormData) {
 
   revalidatePath("/customers");
 }
+
+export async function changeCurrentBusinessPlanAction(formData: FormData) {
+  const { business } = await getActiveBusiness();
+
+  const plan = required(formData.get("plan"), "Plan");
+
+  if (!["FREE", "STARTER", "PRO"].includes(plan)) {
+    throw new Error("Invalid plan.");
+  }
+
+  await prisma.subscription.upsert({
+    where: {
+      businessId: business.id,
+    },
+    update: {
+      plan: plan as "FREE" | "STARTER" | "PRO",
+      status: "ACTIVE",
+    },
+    create: {
+      businessId: business.id,
+      plan: plan as "FREE" | "STARTER" | "PRO",
+      status: "ACTIVE",
+    },
+  });
+
+  revalidatePath("/subscription");
+  revalidatePath("/dashboard");
+}
+
+export async function updateAvailabilityRuleAction(formData: FormData) {
+  const { business } = await getActiveBusiness();
+
+  const availabilityRuleId = required(
+    formData.get("availabilityRuleId"),
+    "Availability rule ID",
+  );
+  const isClosed = formData.get("isClosed") === "on";
+
+  const startTime = isClosed
+    ? "00:00"
+    : required(formData.get("startTime"), "Start time");
+  const endTime = isClosed
+    ? "00:00"
+    : required(formData.get("endTime"), "End time");
+
+  await prisma.availabilityRule.update({
+    where: {
+      id: availabilityRuleId,
+      businessId: business.id,
+    },
+    data: {
+      startTime,
+      endTime,
+      isClosed,
+    },
+  });
+
+  revalidatePath("/availability");
+  revalidatePath("/booking-page");
+}

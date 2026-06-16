@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { CopyButton } from "@/components/modules/copy-button";
 import {
   ArrowUpRight,
   Calendar,
@@ -37,7 +39,7 @@ export default async function BookingPageSettings() {
   });
 
   const openDays = availabilityRules.filter((rule) => !rule.isClosed).length;
-  const bookingLink = `schedora.app/book/${business.slug}`;
+  const bookingLink = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/book/${business.slug}`;
 
   return (
     <div>
@@ -45,9 +47,14 @@ export default async function BookingPageSettings() {
         title="Booking Page"
         description="Manage your public booking link and preview how customers book appointments."
         action={
-          <Button className="bg-black text-white hover:bg-neutral-800">
-            <ArrowUpRight className="mr-2 size-4" />
-            Open public page
+          <Button asChild className="bg-black text-white hover:bg-neutral-800">
+            <Link
+              href={`/book/${business.slug}`}
+              className="inline-flex items-center gap-2"
+            >
+              <ArrowUpRight className="size-4" />
+              Open public page
+            </Link>
           </Button>
         }
       />
@@ -71,10 +78,11 @@ export default async function BookingPageSettings() {
                   <span className="truncate text-sm">{bookingLink}</span>
                 </div>
 
-                <Button className="bg-black text-white hover:bg-neutral-800">
-                  <Copy className="mr-2 size-4" />
-                  Copy link
-                </Button>
+                <CopyButton
+                  value={bookingLink}
+                  label="Copy link"
+                  className="bg-black text-white hover:bg-neutral-800"
+                />
               </div>
             </CardContent>
           </Card>

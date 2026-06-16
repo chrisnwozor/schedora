@@ -164,6 +164,6 @@ export async function getDashboardData() {
     },
     todaySchedule: todayAppointments,
     recentAppointments,
-    bookingLink: `schedora.app/book/${business.slug}`,
+    bookingLink: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/book/${business.slug}`,
   };
 }

@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { updateAppointmentStatusAction } from "@/server/actions/business-records";
 import Link from "next/link";
 import { Calendar, Filter, Plus, Search } from "lucide-react";
@@ -11,13 +12,66 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-export default async function AppointmentsPage() {
+export default async function AppointmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string }>;
+}) {
+  const { search = "" } = await searchParams;
+  const query = search.trim();
   const { business } = await getActiveBusiness();
 
+  const where: Prisma.AppointmentWhereInput = {
+    businessId: business.id,
+  };
+
+  if (query) {
+    where.OR = [
+      {
+        customer: {
+          is: {
+            name: {
+              contains: query,
+              mode: "insensitive",
+            },
+          },
+        },
+      },
+      {
+        customer: {
+          is: {
+            phone: {
+              contains: query,
+              mode: "insensitive",
+            },
+          },
+        },
+      },
+      {
+        service: {
+          is: {
+            name: {
+              contains: query,
+              mode: "insensitive",
+            },
+          },
+        },
+      },
+      {
+        staffMember: {
+          is: {
+            name: {
+              contains: query,
+              mode: "insensitive",
+            },
+          },
+        },
+      },
+    ];
+  }
+
   const appointments = await prisma.appointment.findMany({
-    where: {
-      businessId: business.id,
-    },
+    where,
     include: {
       customer: true,
       service: true,
@@ -87,11 +141,15 @@ export default async function AppointmentsPage() {
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-500" />
-                  <Input
-                    placeholder="Search appointments..."
-                    className="h-11 pl-10 sm:w-80"
-                  />
+                  <form action="/appointments" className="relative">
+                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-500" />
+                    <Input
+                      name="search"
+                      defaultValue={query}
+                      placeholder="Search appointments..."
+                      className="h-11 pl-10 sm:w-80"
+                    />
+                  </form>
                 </div>
 
                 <Button variant="outline" className="h-11">

@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { changeCurrentBusinessPlanAction } from "@/server/actions/business-records";
 import { Check, CreditCard, Crown, Zap } from "lucide-react";
 
 import { cleanEnum } from "@/lib/format";
@@ -71,9 +73,11 @@ export default async function SubscriptionPage() {
         title="Subscription"
         description="Manage your current plan, booking usage, and upgrade options."
         action={
-          <Button className="bg-black text-white hover:bg-neutral-800">
-            <CreditCard className="mr-2 size-4" />
-            Manage billing
+          <Button asChild className="bg-black text-white hover:bg-neutral-800">
+            <Link href="#plans" className="inline-flex items-center gap-2">
+              <CreditCard className="size-4" />
+              Manage billing
+            </Link>
           </Button>
         }
       />
@@ -167,7 +171,7 @@ export default async function SubscriptionPage() {
           </Card>
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-3">
+        <section id="plans" className="grid gap-5 lg:grid-cols-3">
           {plans.map((plan) => {
             const active = plan.name === currentPlan;
 
@@ -209,14 +213,23 @@ export default async function SubscriptionPage() {
                     ))}
                   </ul>
 
-                  <Button
-                    className={`mt-8 w-full ${
-                      active ? "bg-black text-white hover:bg-neutral-800" : ""
-                    }`}
-                    variant={active ? "default" : "outline"}
+                  <form
+                    action={changeCurrentBusinessPlanAction}
+                    className="mt-8"
                   >
-                    {active ? "Current plan" : "Switch plan"}
-                  </Button>
+                    <input type="hidden" name="plan" value={plan.name} />
+
+                    <Button
+                      className={`w-full ${
+                        active ? "bg-black text-white hover:bg-neutral-800" : ""
+                      }`}
+                      variant={active ? "default" : "outline"}
+                      disabled={active}
+                      type="submit"
+                    >
+                      {active ? "Current plan" : "Switch plan"}
+                    </Button>
+                  </form>
                 </CardContent>
               </Card>
             );

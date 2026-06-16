@@ -1,34 +1,44 @@
-"use client";
-
 import { UserButton } from "@clerk/nextjs";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  Calendar,
-  Clock,
-  CreditCard,
-  Home,
-  LinkIcon,
-  Scissors,
-  Settings,
-  Store,
-  Users,
-} from "lucide-react";
+import { Store } from "lucide-react";
 
-const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: Home },
-  { label: "Appointments", href: "/appointments", icon: Calendar },
-  { label: "Customers", href: "/customers", icon: Users },
-  { label: "Services", href: "/services", icon: Scissors },
-  { label: "Staff", href: "/staff", icon: Users },
-  { label: "Availability", href: "/availability", icon: Clock },
-  { label: "Booking Page", href: "/booking-page", icon: LinkIcon },
-  { label: "Subscription", href: "/subscription", icon: CreditCard },
-  { label: "Settings", href: "/settings", icon: Settings },
-];
+import { prisma } from "@/lib/prisma";
+import { getActiveBusiness } from "@/server/business/get-active-business";
+import { AppSidebarNav } from "@/components/app-shell/app-sidebar-nav";
 
-export function AppSidebar() {
-  const pathname = usePathname();
+function cleanPlan(plan: string) {
+  return plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase();
+}
+
+export async function AppSidebar() {
+  const { business, user } = await getActiveBusiness();
+
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+
+  const [subscription, usage] = await Promise.all([
+    prisma.subscription.findUnique({
+      where: {
+        businessId: business.id,
+      },
+    }),
+
+    prisma.bookingUsage.findUnique({
+      where: {
+        businessId_month_year: {
+          businessId: business.id,
+          month,
+          year,
+        },
+      },
+    }),
+  ]);
+
+  const plan = subscription?.plan ?? "FREE";
+  const used = usage?.bookingCount ?? 0;
+  const limit = plan === "PRO" ? null : plan === "STARTER" ? 100 : 20;
+  const percentage = limit ? Math.round((used / limit) * 100) : 100;
+  const remaining = limit ? Math.max(limit - used, 0) : null;
 
   return (
     <aside className="hidden min-h-screen border-r border-neutral-200 bg-white p-4 lg:block">
@@ -46,47 +56,38 @@ export function AppSidebar() {
               <Store className="size-5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">Glow Barbershop</p>
-              <p className="text-xs text-neutral-500">Barber</p>
+              <p className="truncate text-sm font-semibold">{business.name}</p>
+              <p className="text-xs text-neutral-500">
+                {business.businessType}
+              </p>
             </div>
           </div>
         </div>
 
-        <nav className="mt-6 space-y-1">
-          {navItems.map((item) => {
-            const active = pathname === item.href;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium ${
-                  active
-                    ? "bg-neutral-100 text-black"
-                    : "text-neutral-600 hover:bg-neutral-50 hover:text-black"
-                }`}
-              >
-                <item.icon className="size-5" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <AppSidebarNav />
 
         <div className="mt-auto space-y-4">
           <div className="rounded-2xl border border-neutral-200 p-4">
-            <p className="font-semibold">Starter Plan</p>
+            <p className="font-semibold">{cleanPlan(plan)} Plan</p>
+
             <p className="mt-1 text-sm text-neutral-600">
-              68 / 100 bookings used
+              {limit
+                ? `${used} / ${limit} bookings used`
+                : `${used} bookings used`}
             </p>
 
             <div className="mt-4 h-2 rounded-full bg-neutral-200">
-              <div className="h-2 w-[68%] rounded-full bg-black" />
+              <div
+                className="h-2 rounded-full bg-black"
+                style={{ width: `${Math.min(percentage, 100)}%` }}
+              />
             </div>
 
             <div className="mt-3 flex justify-between text-xs text-neutral-500">
-              <span>68%</span>
-              <span>32 remaining</span>
+              <span>{limit ? `${percentage}%` : "Unlimited"}</span>
+              <span>
+                {remaining === null ? "Unlimited" : `${remaining} remaining`}
+              </span>
             </div>
           </div>
 
@@ -94,7 +95,9 @@ export function AppSidebar() {
             <div className="flex items-center gap-3">
               <UserButton />
               <div>
-                <p className="text-sm font-semibold">Account</p>
+                <p className="text-sm font-semibold">
+                  {user.name ?? "Account"}
+                </p>
                 <p className="text-xs text-neutral-500">Owner</p>
               </div>
             </div>

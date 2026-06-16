@@ -21,13 +21,14 @@ export function AdminHeader({
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative">
+          <form action="/admin/businesses" className="relative">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-500" />
             <Input
-              placeholder="Search anything..."
+              name="search"
+              placeholder="Search businesses..."
               className="h-11 w-full pl-10 sm:w-80"
             />
-          </div>
+          </form>
 
           <button className="relative grid size-11 place-items-center rounded-xl border border-neutral-200">
             <Bell className="size-5" />

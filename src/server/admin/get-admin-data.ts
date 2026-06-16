@@ -50,8 +50,34 @@ export async function getAdminOverviewData() {
   };
 }
 
-export async function getAdminBusinessesData() {
+export async function getAdminBusinessesData(search = "") {
+  const query = search.trim();
+
   const businesses = await prisma.business.findMany({
+    where: query
+      ? {
+          OR: [
+            {
+              name: {
+                contains: query,
+                mode: "insensitive",
+              },
+            },
+            {
+              slug: {
+                contains: query,
+                mode: "insensitive",
+              },
+            },
+            {
+              businessType: {
+                contains: query,
+                mode: "insensitive",
+              },
+            },
+          ],
+        }
+      : undefined,
     include: {
       owner: true,
       subscription: true,

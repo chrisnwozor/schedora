@@ -1,3 +1,4 @@
+import { updateAvailabilityRuleAction } from "@/server/actions/business-records";
 import { Clock, Save } from "lucide-react";
 
 import { dayName, formatTime } from "@/lib/format";
@@ -42,39 +43,58 @@ export default async function AvailabilityPage() {
           <CardContent>
             <div className="space-y-4">
               {availability.map((day) => (
-                <div
+                <form
                   key={day.id}
+                  action={updateAvailabilityRuleAction}
                   className="grid gap-4 rounded-2xl border border-neutral-200 p-5 md:grid-cols-[1fr_1fr_1fr_auto]"
                 >
+                  <input
+                    type="hidden"
+                    name="availabilityRuleId"
+                    value={day.id}
+                  />
+
                   <div>
                     <p className="font-semibold">{dayName(day.dayOfWeek)}</p>
-                    <p className="mt-1 text-sm text-neutral-500">
-                      {day.isClosed ? "Closed" : "Open for bookings"}
-                    </p>
+
+                    <label className="mt-3 flex items-center gap-2 text-sm text-neutral-600">
+                      <input
+                        name="isClosed"
+                        type="checkbox"
+                        defaultChecked={day.isClosed}
+                      />
+                      Closed
+                    </label>
                   </div>
 
                   <div>
                     <label className="text-sm text-neutral-500">
                       Start time
                     </label>
-                    <div className="mt-2 rounded-xl border border-neutral-200 px-4 py-3 text-sm">
-                      {day.isClosed ? "Closed" : formatTime(day.startTime)}
-                    </div>
+                    <input
+                      name="startTime"
+                      type="time"
+                      defaultValue={day.startTime}
+                      className="mt-2 h-11 w-full rounded-xl border border-neutral-200 px-4 text-sm outline-none"
+                    />
                   </div>
 
                   <div>
                     <label className="text-sm text-neutral-500">End time</label>
-                    <div className="mt-2 rounded-xl border border-neutral-200 px-4 py-3 text-sm">
-                      {day.isClosed ? "Closed" : formatTime(day.endTime)}
-                    </div>
+                    <input
+                      name="endTime"
+                      type="time"
+                      defaultValue={day.endTime}
+                      className="mt-2 h-11 w-full rounded-xl border border-neutral-200 px-4 text-sm outline-none"
+                    />
                   </div>
 
                   <div className="flex items-end">
-                    <Button variant="outline" className="w-full">
-                      Edit
+                    <Button variant="outline" type="submit" className="w-full">
+                      Save
                     </Button>
                   </div>
-                </div>
+                </form>
               ))}
             </div>
           </CardContent>

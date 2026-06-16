@@ -49,8 +49,13 @@ const businesses = [
   ],
 ];
 
-export default async function AdminBusinessesPage() {
-  const data = await getAdminBusinessesData();
+export default async function AdminBusinessesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string }>;
+}) {
+  const { search = "" } = await searchParams;
+  const data = await getAdminBusinessesData(search);
   return (
     <div>
       <AdminHeader
