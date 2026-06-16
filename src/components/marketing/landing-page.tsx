@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   ArrowRight,
   BarChart3,
@@ -190,11 +191,12 @@ function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Button variant="ghost" className="hidden md:inline-flex">
-            Log in
+          <Button asChild variant="ghost" className="hidden md:inline-flex">
+            <Link href="/sign-in">Log in</Link>
           </Button>
-          <Button className="bg-black text-white hover:bg-neutral-800">
-            Start free
+
+          <Button asChild className="bg-black text-white hover:bg-neutral-800">
+            <Link href="/sign-up">Start free</Link>
           </Button>
         </div>
       </div>
@@ -224,16 +226,24 @@ function Hero() {
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button
+              asChild
               size="lg"
               className="bg-black text-white hover:bg-neutral-800"
             >
-              Start free
-              <ArrowRight className="ml-2 size-4" />
+              <Link href="/sign-up" className="inline-flex items-center gap-2">
+                Start free
+                <ArrowRight className="size-4" />
+              </Link>
             </Button>
 
-            <Button size="lg" variant="outline">
-              View demo
-              <ChevronRight className="ml-2 size-4" />
+            <Button asChild size="lg" variant="outline">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2"
+              >
+                View demo
+                <ChevronRight className="size-4" />
+              </Link>
             </Button>
           </div>
 
@@ -586,6 +596,7 @@ function Pricing() {
                 </ul>
 
                 <Button
+                  asChild
                   className={`mt-8 w-full ${
                     plan.highlighted
                       ? "bg-black text-white hover:bg-neutral-800"
@@ -593,7 +604,7 @@ function Pricing() {
                   }`}
                   variant={plan.highlighted ? "default" : "outline"}
                 >
-                  Start free
+                  <Link href="/sign-up">Start free</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -683,10 +694,16 @@ function CTA() {
           </div>
 
           <div className="flex gap-3">
-            <Button className="bg-black text-white hover:bg-neutral-800">
-              Start free
+            <Button
+              asChild
+              className="bg-black text-white hover:bg-neutral-800"
+            >
+              <Link href="/sign-up">Start free</Link>
             </Button>
-            <Button variant="outline">View demo</Button>
+
+            <Button asChild variant="outline">
+              <Link href="/dashboard">View demo</Link>
+            </Button>
           </div>
         </div>
       </div>
@@ -759,7 +776,18 @@ function FooterColumn({ title, items }: { title: string; items: string[] }) {
       <ul className="mt-4 space-y-3 text-sm text-neutral-600">
         {items.map((item) => (
           <li key={item}>
-            <a href="#" className="hover:text-black">
+            <a
+              href={
+                item === "Features"
+                  ? "#features"
+                  : item === "How it works"
+                    ? "#how-it-works"
+                    : item === "Pricing"
+                      ? "#pricing"
+                      : "#"
+              }
+              className="hover:text-black"
+            >
               {item}
             </a>
           </li>
