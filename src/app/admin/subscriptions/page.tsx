@@ -1,3 +1,5 @@
+import { getAdminSubscriptionsData } from "@/server/admin/get-admin-data";
+import { cleanEnum } from "@/lib/format";
 import { CreditCard, Filter, Search } from "lucide-react";
 
 import { AdminHeader } from "@/components/admin/admin-header";
@@ -14,7 +16,8 @@ const subscriptions = [
   ["Pure Wellness Clinic", "Starter", "$19", "45 / 100", "Active"],
 ];
 
-export default function AdminSubscriptionsPage() {
+export default async function AdminSubscriptionsPage() {
+  const data = await getAdminSubscriptionsData();
   return (
     <div>
       <AdminHeader
@@ -30,10 +33,10 @@ export default function AdminSubscriptionsPage() {
 
       <main className="space-y-6 p-6 lg:p-10">
         <section className="grid gap-5 md:grid-cols-4">
-          <Summary title="Free" value="642" />
-          <Summary title="Starter" value="387" />
-          <Summary title="Pro" value="219" />
-          <Summary title="Enterprise" value="0" />
+          <Summary title="Free" value={data.free.toString()} />
+          <Summary title="Starter" value={data.starter.toString()} />
+          <Summary title="Pro" value={data.pro.toString()} />
+          <Summary title="Active" value={data.active.toString()} />
         </section>
 
         <Card className="rounded-2xl border-neutral-200 shadow-none">
@@ -72,27 +75,50 @@ export default function AdminSubscriptionsPage() {
               </thead>
 
               <tbody>
-                {subscriptions.map((subscription) => (
-                  <tr
-                    key={subscription[0]}
-                    className="border-b border-neutral-100"
-                  >
-                    <td className="py-4 font-semibold">{subscription[0]}</td>
-                    <td className="py-4">
-                      <Badge variant="secondary">{subscription[1]}</Badge>
-                    </td>
-                    <td className="py-4">{subscription[2]}</td>
-                    <td className="py-4">{subscription[3]}</td>
-                    <td className="py-4">
-                      <Badge variant="secondary">{subscription[4]}</Badge>
-                    </td>
-                    <td className="py-4">
-                      <Button variant="outline" size="sm">
-                        Change plan
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                {data.subscriptions.map((subscription) => {
+                  const usage =
+                    subscription.business.bookingUsage[0]?.bookingCount ?? 0;
+                  const limit =
+                    subscription.plan === "PRO"
+                      ? "Unlimited"
+                      : subscription.plan === "STARTER"
+                        ? `${usage} / 100`
+                        : `${usage} / 20`;
+
+                  return (
+                    <tr
+                      key={subscription.id}
+                      className="border-b border-neutral-100"
+                    >
+                      <td className="py-4 font-semibold">
+                        {subscription.business.name}
+                      </td>
+                      <td className="py-4">
+                        <Badge variant="secondary">
+                          {cleanEnum(subscription.plan)}
+                        </Badge>
+                      </td>
+                      <td className="py-4">
+                        {subscription.plan === "FREE"
+                          ? "$0"
+                          : subscription.plan === "STARTER"
+                            ? "$19"
+                            : "$39"}
+                      </td>
+                      <td className="py-4">{limit}</td>
+                      <td className="py-4">
+                        <Badge variant="secondary">
+                          {cleanEnum(subscription.status)}
+                        </Badge>
+                      </td>
+                      <td className="py-4">
+                        <Button variant="outline" size="sm">
+                          Change plan
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </CardContent>

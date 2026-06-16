@@ -1,3 +1,5 @@
+import { getAdminUsersData } from "@/server/admin/get-admin-data";
+import { cleanEnum } from "@/lib/format";
 import { Filter, Search, UserPlus } from "lucide-react";
 
 import { AdminHeader } from "@/components/admin/admin-header";
@@ -26,7 +28,8 @@ const users = [
   ["Admin Owner", "admin@schedora.com", "Platform Admin", "Schedora", "Active"],
 ];
 
-export default function AdminUsersPage() {
+export default async function AdminUsersPage() {
+  const data = await getAdminUsersData();
   return (
     <div>
       <AdminHeader
@@ -42,10 +45,10 @@ export default function AdminUsersPage() {
 
       <main className="space-y-6 p-6 lg:p-10">
         <section className="grid gap-5 md:grid-cols-4">
-          <Summary title="Total users" value="3,652" />
-          <Summary title="Owners" value="1,248" />
-          <Summary title="Staff" value="2,301" />
-          <Summary title="Admins" value="3" />
+          <Summary title="Total users" value={data.total.toString()} />
+          <Summary title="Owners" value={data.businessOwners.toString()} />
+          <Summary title="Staff" value={data.staffUsers.toString()} />
+          <Summary title="Admins" value={data.platformAdmins.toString()} />
         </section>
 
         <Card className="rounded-2xl border-neutral-200 shadow-none">
@@ -83,26 +86,40 @@ export default function AdminUsersPage() {
               </thead>
 
               <tbody>
-                {users.map((user) => (
-                  <tr key={user[1]} className="border-b border-neutral-100">
-                    <td className="py-4">
-                      <p className="font-semibold">{user[0]}</p>
-                      <p className="text-neutral-500">{user[1]}</p>
-                    </td>
-                    <td className="py-4">
-                      <Badge variant="secondary">{user[2]}</Badge>
-                    </td>
-                    <td className="py-4">{user[3]}</td>
-                    <td className="py-4">
-                      <Badge variant="secondary">{user[4]}</Badge>
-                    </td>
-                    <td className="py-4">
-                      <Button variant="outline" size="sm">
-                        View
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                {data.users.map((user) => {
+                  const firstMembership = user.memberships[0];
+
+                  return (
+                    <tr key={user.id} className="border-b border-neutral-100">
+                      <td className="py-4">
+                        <p className="font-semibold">
+                          {user.name ?? "Unnamed user"}
+                        </p>
+                        <p className="text-neutral-500">{user.email}</p>
+                      </td>
+                      <td className="py-4">
+                        <Badge variant="secondary">
+                          {user.platformRole === "PLATFORM_ADMIN"
+                            ? "Platform Admin"
+                            : firstMembership
+                              ? cleanEnum(firstMembership.role)
+                              : "User"}
+                        </Badge>
+                      </td>
+                      <td className="py-4">
+                        {firstMembership?.business.name ?? "No business"}
+                      </td>
+                      <td className="py-4">
+                        <Badge variant="secondary">Active</Badge>
+                      </td>
+                      <td className="py-4">
+                        <Button variant="outline" size="sm">
+                          View
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </CardContent>

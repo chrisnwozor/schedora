@@ -10,76 +10,49 @@ import {
   Users,
 } from "lucide-react";
 
+import { getAdminOverviewData } from "@/server/admin/get-admin-data";
+import { cleanEnum, formatDate } from "@/lib/format";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const metrics = [
-  ["Total Businesses", "1,248", "12.5% vs last month", Building2],
-  ["Total Users", "3,652", "10.2% vs last month", Users],
-  ["Total Appointments", "28,459", "18.6% vs last month", Calendar],
-  ["Monthly Revenue", "$24,560", "15.3% vs last month", DollarSign],
-  ["Active Subscriptions", "2,156", "9.8% vs last month", CreditCard],
-];
+export default async function AdminOverviewPage() {
+  const data = await getAdminOverviewData();
 
-const topBusinesses = [
-  [
-    "Glow Barbershop",
-    "glowbarbershop.com",
-    "Pro",
-    "1,234",
-    "$1,240",
-    "Active",
-    "May 28, 2025",
-  ],
-  [
-    "The Nail Place",
-    "thenailplace.com",
-    "Starter",
-    "987",
-    "$987",
-    "Active",
-    "May 24, 2025",
-  ],
-  [
-    "Fresh Cuts",
-    "freshcuts.com",
-    "Pro",
-    "876",
-    "$876",
-    "Active",
-    "May 20, 2025",
-  ],
-  [
-    "Beauty Studio Lagos",
-    "beautystudio.com",
-    "Free",
-    "456",
-    "$0",
-    "Suspended",
-    "May 18, 2025",
-  ],
-  [
-    "Pure Wellness Clinic",
-    "purewellness.com",
-    "Starter",
-    "432",
-    "$432",
-    "Active",
-    "May 15, 2025",
-  ],
-];
+  const metrics = [
+    [
+      "Total Businesses",
+      data.metrics.totalBusinesses.toString(),
+      "All tenant accounts",
+      Building2,
+    ],
+    [
+      "Total Users",
+      data.metrics.totalUsers.toString(),
+      "All platform users",
+      Users,
+    ],
+    [
+      "Total Appointments",
+      data.metrics.totalAppointments.toString(),
+      "All appointment records",
+      Calendar,
+    ],
+    [
+      "Monthly Revenue",
+      `$${data.metrics.monthlyRevenue.toLocaleString()}`,
+      "Estimated manual billing",
+      DollarSign,
+    ],
+    [
+      "Active Subscriptions",
+      data.metrics.activeSubscriptions.toString(),
+      "Active plan records",
+      CreditCard,
+    ],
+  ] as const;
 
-const activity = [
-  ["New business registered", "Glow Barbershop", "2m ago"],
-  ["New user registered", "john.doe@example.com", "10m ago"],
-  ["Subscription upgraded", "The Nail Place", "25m ago"],
-  ["Appointment created", "Fresh Cuts", "35m ago"],
-  ["Business suspended", "Beauty Studio Lagos", "1h ago"],
-];
-
-export default function AdminOverviewPage() {
   return (
     <div>
       <AdminHeader
@@ -91,16 +64,16 @@ export default function AdminOverviewPage() {
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
           {metrics.map(([label, value, helper, Icon]) => (
             <Card
-              key={label as string}
+              key={label}
               className="rounded-2xl border-neutral-200 shadow-none"
             >
               <CardContent className="flex items-start justify-between p-6">
                 <div>
-                  <p className="text-sm text-neutral-600">{label as string}</p>
-                  <p className="mt-4 text-3xl font-bold">{value as string}</p>
+                  <p className="text-sm text-neutral-600">{label}</p>
+                  <p className="mt-4 text-3xl font-bold">{value}</p>
                   <p className="mt-3 flex items-center gap-1 text-sm text-neutral-600">
                     <ArrowUp className="size-3" />
-                    {helper as string}
+                    {helper}
                   </p>
                 </div>
 
@@ -125,7 +98,6 @@ export default function AdminOverviewPage() {
                     <th className="py-3 font-medium">Business</th>
                     <th className="py-3 font-medium">Plan</th>
                     <th className="py-3 font-medium">Appointments</th>
-                    <th className="py-3 font-medium">Revenue</th>
                     <th className="py-3 font-medium">Status</th>
                     <th className="py-3 font-medium">Joined</th>
                     <th className="py-3 font-medium">Action</th>
@@ -133,24 +105,33 @@ export default function AdminOverviewPage() {
                 </thead>
 
                 <tbody>
-                  {topBusinesses.map((business) => (
+                  {data.topBusinesses.map((business) => (
                     <tr
-                      key={business[1]}
+                      key={business.id}
                       className="border-b border-neutral-100"
                     >
                       <td className="py-4">
-                        <p className="font-semibold">{business[0]}</p>
-                        <p className="text-neutral-500">{business[1]}</p>
+                        <p className="font-semibold">{business.name}</p>
+                        <p className="text-neutral-500">
+                          /book/{business.slug}
+                        </p>
                       </td>
                       <td className="py-4">
-                        <Badge variant="secondary">{business[2]}</Badge>
+                        <Badge variant="secondary">
+                          {business.subscription?.plan
+                            ? cleanEnum(business.subscription.plan)
+                            : "Free"}
+                        </Badge>
                       </td>
-                      <td className="py-4">{business[3]}</td>
-                      <td className="py-4">{business[4]}</td>
+                      <td className="py-4">{business.appointments.length}</td>
                       <td className="py-4">
-                        <Badge variant="secondary">{business[5]}</Badge>
+                        <Badge variant="secondary">
+                          {cleanEnum(business.status)}
+                        </Badge>
                       </td>
-                      <td className="py-4 text-neutral-600">{business[6]}</td>
+                      <td className="py-4 text-neutral-600">
+                        {formatDate(business.createdAt)}
+                      </td>
                       <td className="py-4">
                         <Button variant="outline" size="sm">
                           View
@@ -171,9 +152,9 @@ export default function AdminOverviewPage() {
 
               <CardContent>
                 <div className="space-y-5">
-                  {activity.map((item) => (
+                  {data.recentBusinesses.map((business) => (
                     <div
-                      key={item.join("-")}
+                      key={business.id}
                       className="flex items-start justify-between gap-4"
                     >
                       <div className="flex gap-3">
@@ -181,11 +162,17 @@ export default function AdminOverviewPage() {
                           <Activity className="size-4" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold">{item[0]}</p>
-                          <p className="text-sm text-neutral-500">{item[1]}</p>
+                          <p className="text-sm font-semibold">
+                            Business registered
+                          </p>
+                          <p className="text-sm text-neutral-500">
+                            {business.name}
+                          </p>
                         </div>
                       </div>
-                      <p className="text-xs text-neutral-500">{item[2]}</p>
+                      <p className="text-xs text-neutral-500">
+                        {formatDate(business.createdAt)}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -203,20 +190,11 @@ export default function AdminOverviewPage() {
                   label="Platform Status"
                   value="Operational"
                 />
-                <HealthRow
-                  icon={Database}
-                  label="Database"
-                  value="Operational"
-                />
+                <HealthRow icon={Database} label="Database" value="Connected" />
                 <HealthRow
                   icon={Activity}
-                  label="Server Uptime"
-                  value="99.98%"
-                />
-                <HealthRow
-                  icon={Activity}
-                  label="API Response Time"
-                  value="120ms"
+                  label="Admin Access"
+                  value="Protected"
                 />
               </CardContent>
             </Card>

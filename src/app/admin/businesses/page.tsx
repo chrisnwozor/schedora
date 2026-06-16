@@ -1,3 +1,5 @@
+import { getAdminBusinessesData } from "@/server/admin/get-admin-data";
+import { cleanEnum, formatDate } from "@/lib/format";
 import { Building2, Filter, Plus, Search } from "lucide-react";
 
 import { AdminHeader } from "@/components/admin/admin-header";
@@ -46,7 +48,8 @@ const businesses = [
   ],
 ];
 
-export default function AdminBusinessesPage() {
+export default async function AdminBusinessesPage() {
+  const data = await getAdminBusinessesData();
   return (
     <div>
       <AdminHeader
@@ -62,10 +65,10 @@ export default function AdminBusinessesPage() {
 
       <main className="space-y-6 p-6 lg:p-10">
         <section className="grid gap-5 md:grid-cols-4">
-          <Summary title="Total businesses" value="1,248" />
-          <Summary title="Active" value="1,189" />
-          <Summary title="Suspended" value="22" />
-          <Summary title="Free plans" value="642" />
+          <Summary title="Total businesses" value={data.total.toString()} />
+          <Summary title="Active" value={data.active.toString()} />
+          <Summary title="Suspended" value={data.suspended.toString()} />
+          <Summary title="Free plans" value={data.freePlans.toString()} />
         </section>
 
         <Card className="rounded-2xl border-neutral-200 shadow-none">
@@ -99,38 +102,46 @@ export default function AdminBusinessesPage() {
                   <th className="py-3 font-medium">Plan</th>
                   <th className="py-3 font-medium">Status</th>
                   <th className="py-3 font-medium">Bookings</th>
-                  <th className="py-3 font-medium">Revenue</th>
+                  <th className="py-3 font-medium">Customers</th>
                   <th className="py-3 font-medium">Joined</th>
                   <th className="py-3 font-medium">Action</th>
                 </tr>
               </thead>
 
               <tbody>
-                {businesses.map((business) => (
-                  <tr key={business[0]} className="border-b border-neutral-100">
+                {data.businesses.map((business) => (
+                  <tr key={business.id} className="border-b border-neutral-100">
                     <td className="py-4">
                       <div className="flex items-center gap-3">
                         <div className="grid size-10 place-items-center rounded-xl bg-black text-white">
                           <Building2 className="size-4" />
                         </div>
                         <div>
-                          <p className="font-semibold">{business[0]}</p>
+                          <p className="font-semibold">{business.name}</p>
                           <p className="text-neutral-500">
-                            {business[0].toLowerCase().replaceAll(" ", "")}.com
+                            /book/{business.slug}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="py-4">{business[1]}</td>
+                    <td className="py-4">{business.businessType}</td>
                     <td className="py-4">
-                      <Badge variant="secondary">{business[2]}</Badge>
+                      <Badge variant="secondary">
+                        {business.subscription?.plan
+                          ? cleanEnum(business.subscription.plan)
+                          : "Free"}
+                      </Badge>
                     </td>
                     <td className="py-4">
-                      <Badge variant="secondary">{business[3]}</Badge>
+                      <Badge variant="secondary">
+                        {cleanEnum(business.status)}
+                      </Badge>
                     </td>
-                    <td className="py-4">{business[4]}</td>
-                    <td className="py-4">{business[5]}</td>
-                    <td className="py-4 text-neutral-600">{business[6]}</td>
+                    <td className="py-4">{business.appointments.length}</td>
+                    <td className="py-4">{business.customers.length}</td>
+                    <td className="py-4 text-neutral-600">
+                      {formatDate(business.createdAt)}
+                    </td>
                     <td className="py-4">
                       <Button variant="outline" size="sm">
                         Manage
