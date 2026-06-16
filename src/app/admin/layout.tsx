@@ -1,10 +1,13 @@
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
+import { requirePlatformAdmin } from "@/server/auth/require-platform-admin";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requirePlatformAdmin();
+
   return (
     <main className="min-h-screen bg-white text-black">
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
