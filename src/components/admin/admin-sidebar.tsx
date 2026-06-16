@@ -99,7 +99,7 @@ export function AdminSidebar() {
 
         <div className="mt-auto rounded-2xl border border-neutral-200 p-4">
           <div className="flex items-center gap-3">
-            <UserButton afterSignOutUrl="/" />
+            <UserButton />
             <div>
               <p className="text-sm font-semibold">Admin Account</p>
               <p className="text-xs text-neutral-500">Protected</p>
