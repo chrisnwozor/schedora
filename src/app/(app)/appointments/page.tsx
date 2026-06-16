@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Calendar, Filter, Plus, Search } from "lucide-react";
 
 import { formatDate, formatTime, cleanEnum } from "@/lib/format";
-import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { getActiveBusiness } from "@/server/business/get-active-business";
 import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 export default async function AppointmentsPage() {
-  const business = await getDemoBusiness();
+  const { business } = await getActiveBusiness();
 
   const appointments = await prisma.appointment.findMany({
     where: {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
-import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { getActiveBusiness } from "@/server/business/get-active-business";
 import { createAppointmentAction } from "@/server/actions/business-records";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ const timeOptions = [
 ];
 
 export default async function NewAppointmentPage() {
-  const business = await getDemoBusiness();
+  const { business } = await getActiveBusiness();
 
   const [customers, services, staffMembers] = await Promise.all([
     prisma.customer.findMany({

@@ -1,7 +1,7 @@
 import { Check, CreditCard, Crown, Zap } from "lucide-react";
 
 import { cleanEnum } from "@/lib/format";
-import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { getActiveBusiness } from "@/server/business/get-active-business";
 import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +40,7 @@ const plans = [
 ];
 
 export default async function SubscriptionPage() {
-  const business = await getDemoBusiness();
+  const { business } = await getActiveBusiness();
 
   const subscription = await prisma.subscription.findUnique({
     where: {

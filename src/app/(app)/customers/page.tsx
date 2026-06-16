@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Mail, Phone, Plus, Search, Users } from "lucide-react";
 
 import { getInitials } from "@/lib/format";
-import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { getActiveBusiness } from "@/server/business/get-active-business";
 import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 export default async function CustomersPage() {
-  const business = await getDemoBusiness();
+  const { business } = await getActiveBusiness();
 
   const customers = await prisma.customer.findMany({
     where: {

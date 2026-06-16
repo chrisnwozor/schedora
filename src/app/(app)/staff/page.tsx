@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Calendar, Plus, Scissors } from "lucide-react";
 
 import { getInitials } from "@/lib/format";
-import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { getActiveBusiness } from "@/server/business/get-active-business";
 import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function StaffPage() {
-  const business = await getDemoBusiness();
+  const { business } = await getActiveBusiness();
 
   const staff = await prisma.staffMember.findMany({
     where: {

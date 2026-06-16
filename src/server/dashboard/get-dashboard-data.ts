@@ -1,30 +1,48 @@
 import { prisma } from "@/lib/prisma";
+import { getActiveBusiness } from "@/server/business/get-active-business";
 
-const DEMO_BUSINESS_SLUG = "glowbarbershop";
+function getTodayRange() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  return { start, end };
+}
+
+function getMonthRange() {
+  const now = new Date();
+
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  return {
+    start,
+    end,
+    month: now.getMonth() + 1,
+    year: now.getFullYear(),
+  };
+}
 
 export async function getDashboardData() {
-  const business = await prisma.business.findUnique({
+  const { business } = await getActiveBusiness();
+
+  const { start: todayStart, end: todayEnd } = getTodayRange();
+  const { start: monthStart, end: monthEnd, month, year } = getMonthRange();
+
+  const businessWithBilling = await prisma.business.findUnique({
     where: {
-      slug: DEMO_BUSINESS_SLUG,
+      id: business.id,
     },
     include: {
       subscription: true,
-      bookingUsage: {
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: 1,
-      },
     },
   });
 
-  if (!business) {
-    throw new Error(
-      "Demo business was not found. Run `npx prisma db seed` first.",
-    );
+  if (!businessWithBilling) {
+    throw new Error("Active business was not found.");
   }
-
-  const today = new Date("2026-06-15T00:00:00.000Z");
 
   const [
     todayAppointments,
@@ -32,11 +50,15 @@ export async function getDashboardData() {
     monthlyBookings,
     upcomingAppointments,
     recentAppointments,
+    currentUsageRecord,
   ] = await Promise.all([
     prisma.appointment.findMany({
       where: {
         businessId: business.id,
-        date: today,
+        date: {
+          gte: todayStart,
+          lt: todayEnd,
+        },
       },
       include: {
         customer: true,
@@ -57,6 +79,10 @@ export async function getDashboardData() {
     prisma.appointment.count({
       where: {
         businessId: business.id,
+        date: {
+          gte: monthStart,
+          lt: monthEnd,
+        },
       },
     }),
 
@@ -64,7 +90,7 @@ export async function getDashboardData() {
       where: {
         businessId: business.id,
         date: {
-          gte: today,
+          gte: todayStart,
         },
       },
     }),
@@ -88,14 +114,24 @@ export async function getDashboardData() {
       ],
       take: 5,
     }),
+
+    prisma.bookingUsage.findUnique({
+      where: {
+        businessId_month_year: {
+          businessId: business.id,
+          month,
+          year,
+        },
+      },
+    }),
   ]);
 
-  const currentUsage = business.bookingUsage[0]?.bookingCount ?? 0;
+  const currentUsage = currentUsageRecord?.bookingCount ?? 0;
 
   const planLimit =
-    business.subscription?.plan === "PRO"
+    businessWithBilling.subscription?.plan === "PRO"
       ? null
-      : business.subscription?.plan === "STARTER"
+      : businessWithBilling.subscription?.plan === "STARTER"
         ? 100
         : 20;
 
@@ -120,7 +156,7 @@ export async function getDashboardData() {
       totalCustomers,
     },
     usage: {
-      plan: business.subscription?.plan ?? "FREE",
+      plan: businessWithBilling.subscription?.plan ?? "FREE",
       used: currentUsage,
       limit: planLimit,
       percentage: usagePercentage,

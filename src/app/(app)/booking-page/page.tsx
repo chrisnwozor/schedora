@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 import { formatMoneyFromCents } from "@/lib/format";
-import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { getActiveBusiness } from "@/server/business/get-active-business";
 import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 export default async function BookingPageSettings() {
-  const business = await getDemoBusiness();
+  const { business } = await getActiveBusiness();
 
   const services = await prisma.service.findMany({
     where: {

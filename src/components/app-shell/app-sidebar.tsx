@@ -1,5 +1,6 @@
 "use client";
 
+import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -91,11 +92,9 @@ export function AppSidebar() {
 
           <div className="rounded-2xl border border-neutral-200 p-4">
             <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-full bg-neutral-100 font-bold">
-                U
-              </div>
+              <UserButton afterSignOutUrl="/" />
               <div>
-                <p className="text-sm font-semibold">Ugochukwu</p>
+                <p className="text-sm font-semibold">Account</p>
                 <p className="text-xs text-neutral-500">Owner</p>
               </div>
             </div>

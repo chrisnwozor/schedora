@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
-import { getDemoBusiness } from "@/server/business/get-demo-business";
+import { getActiveBusiness } from "@/server/business/get-active-business";
 
 function required(value: FormDataEntryValue | null, field: string) {
   if (!value || value.toString().trim().length === 0) {
@@ -41,7 +41,7 @@ function dollarsToCents(value: string) {
 }
 
 export async function createServiceAction(formData: FormData) {
-  const business = await getDemoBusiness();
+  const { business } = await getActiveBusiness();
 
   const name = required(formData.get("name"), "Service name");
   const price = required(formData.get("price"), "Price");
@@ -68,7 +68,7 @@ export async function createServiceAction(formData: FormData) {
 }
 
 export async function createCustomerAction(formData: FormData) {
-  const business = await getDemoBusiness();
+  const { business } = await getActiveBusiness();
 
   await prisma.customer.create({
     data: {
@@ -84,7 +84,7 @@ export async function createCustomerAction(formData: FormData) {
 }
 
 export async function createStaffAction(formData: FormData) {
-  const business = await getDemoBusiness();
+  const { business } = await getActiveBusiness();
 
   await prisma.staffMember.create({
     data: {
@@ -101,7 +101,7 @@ export async function createStaffAction(formData: FormData) {
 }
 
 export async function createAppointmentAction(formData: FormData) {
-  const business = await getDemoBusiness();
+  const { business } = await getActiveBusiness();
 
   const customerId = required(formData.get("customerId"), "Customer");
   const serviceId = required(formData.get("serviceId"), "Service");

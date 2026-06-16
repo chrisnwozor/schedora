@@ -1,5 +1,6 @@
 "use client";
 
+import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -98,12 +99,10 @@ export function AdminSidebar() {
 
         <div className="mt-auto rounded-2xl border border-neutral-200 p-4">
           <div className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-full bg-black text-sm font-bold text-white">
-              AO
-            </div>
+            <UserButton afterSignOutUrl="/" />
             <div>
-              <p className="text-sm font-semibold">Admin Owner</p>
-              <p className="text-xs text-neutral-500">Super Admin</p>
+              <p className="text-sm font-semibold">Admin Account</p>
+              <p className="text-xs text-neutral-500">Protected</p>
             </div>
           </div>
         </div>
