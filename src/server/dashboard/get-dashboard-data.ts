@@ -1,35 +1,24 @@
 import { prisma } from "@/lib/prisma";
+import {
+  getMonthDateRangeForTimeZone,
+  getTodayDateRangeForTimeZone,
+} from "@/lib/date";
 import { getActiveBusiness } from "@/server/business/get-active-business";
-
-function getTodayRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-
-  return { start, end };
-}
-
-function getMonthRange() {
-  const now = new Date();
-
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
-  return {
-    start,
-    end,
-    month: now.getMonth() + 1,
-    year: now.getFullYear(),
-  };
-}
 
 export async function getDashboardData() {
   const { business } = await getActiveBusiness();
 
-  const { start: todayStart, end: todayEnd } = getTodayRange();
-  const { start: monthStart, end: monthEnd, month, year } = getMonthRange();
+  const timeZone = business.timeZone;
+
+  const { start: todayStart, end: todayEnd } =
+    getTodayDateRangeForTimeZone(timeZone);
+
+  const {
+    start: monthStart,
+    end: monthEnd,
+    month,
+    year,
+  } = getMonthDateRangeForTimeZone(timeZone);
 
   const businessWithBilling = await prisma.business.findUnique({
     where: {
@@ -92,6 +81,9 @@ export async function getDashboardData() {
         date: {
           gte: todayStart,
         },
+        status: {
+          not: "CANCELLED",
+        },
       },
     }),
 
@@ -145,7 +137,9 @@ export async function getDashboardData() {
       name: business.name,
       slug: business.slug,
       businessType: business.businessType,
+      timeZone,
     },
+
     metrics: {
       todayAppointments: todayAppointments.length,
       pendingToday: todayAppointments.filter(
@@ -155,6 +149,7 @@ export async function getDashboardData() {
       monthlyBookings,
       totalCustomers,
     },
+
     usage: {
       plan: businessWithBilling.subscription?.plan ?? "FREE",
       used: currentUsage,
@@ -162,8 +157,12 @@ export async function getDashboardData() {
       percentage: usagePercentage,
       remaining: planLimit ? Math.max(planLimit - currentUsage, 0) : null,
     },
+
     todaySchedule: todayAppointments,
     recentAppointments,
-    bookingLink: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/book/${business.slug}`,
+
+    bookingLink: `${
+      process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+    }/book/${business.slug}`,
   };
 }

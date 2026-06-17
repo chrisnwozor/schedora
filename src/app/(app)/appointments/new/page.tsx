@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getLocalDateInputValue } from "@/lib/date";
+import { getDateInputValueInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { getActiveBusiness } from "@/server/business/get-active-business";
 import { NewAppointmentForm } from "@/components/appointments/new-appointment-form";
@@ -46,7 +46,7 @@ export default async function NewAppointmentPage() {
           <CardContent>
             <NewAppointmentForm
               businessSlug={business.slug}
-              initialDate={getLocalDateInputValue()}
+              initialDate={getDateInputValueInTimeZone(business.timeZone)}
               customers={customers}
               services={services}
               staffMembers={staffMembers}

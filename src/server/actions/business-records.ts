@@ -1,5 +1,6 @@
 "use server";
 
+import { getMonthKeyInTimeZone } from "@/lib/date";
 import { getAvailableSlotsForBooking } from "@/server/booking/slots";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -188,9 +189,7 @@ export async function createAppointmentAction(formData: FormData) {
   if (existingAppointment) {
     throw new Error("That appointment time is no longer available.");
   }
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
+  const { month, year } = getMonthKeyInTimeZone(business.timeZone);
   await prisma.$transaction([
     prisma.appointment.create({
       data: {

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { Calendar, Plus, Search } from "lucide-react";
+import { getDateInputValueInTimeZone, parseDateInputAsUtc } from "@/lib/date";
 import { cleanEnum, formatDate, formatTime } from "@/lib/format";
-import { getLocalDateInputValue } from "@/lib/date";
 import { getActiveBusiness } from "@/server/business/get-active-business";
 import { prisma } from "@/lib/prisma";
 import { ModuleHeader } from "@/components/modules/module-header";
@@ -33,7 +33,13 @@ export default async function AppointmentsPage({
     include: { customer: true, service: true, staffMember: true },
     orderBy: [{ date: "desc" }, { startTime: "asc" }],
   });
-  const today = new Date(`${getLocalDateInputValue()}T00:00:00.000Z`);
+  const today = parseDateInputAsUtc(
+    getDateInputValueInTimeZone(business.timeZone),
+  );
+
+  if (!today) {
+    throw new Error("Unable to calculate today.");
+  }
   const todayAppointments = appointments.filter(
     (appointment) => appointment.date.getTime() === today.getTime(),
   );

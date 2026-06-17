@@ -1,3 +1,4 @@
+import { getMonthKeyInTimeZone } from "@/lib/date";
 import { UserButton } from "@clerk/nextjs";
 import { Store } from "lucide-react";
 
@@ -12,9 +13,7 @@ function cleanPlan(plan: string) {
 export async function AppSidebar() {
   const { business, user } = await getActiveBusiness();
 
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
+  const { month, year } = getMonthKeyInTimeZone(business.timeZone);
 
   const [subscription, usage] = await Promise.all([
     prisma.subscription.findUnique({
