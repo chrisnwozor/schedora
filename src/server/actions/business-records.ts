@@ -1,5 +1,6 @@
 "use server";
 
+import { getAvailableSlotsForBooking } from "@/server/booking/slots";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -103,73 +104,63 @@ export async function createStaffAction(formData: FormData) {
 
 export async function createAppointmentAction(formData: FormData) {
   const { business } = await getActiveBusiness();
-
   const customerId = required(formData.get("customerId"), "Customer");
   const serviceId = required(formData.get("serviceId"), "Service");
   const staffMemberId = optional(formData.get("staffMemberId"));
   const appointmentDate = required(formData.get("date"), "Date");
   const startTime = required(formData.get("startTime"), "Start time");
   const status = required(formData.get("status"), "Status");
-
   const service = await prisma.service.findFirst({
-    where: {
-      id: serviceId,
-      businessId: business.id,
-      isActive: true,
-    },
+    where: { id: serviceId, businessId: business.id, isActive: true },
   });
-
   if (!service) {
     throw new Error("Selected service was not found.");
   }
-
   const customer = await prisma.customer.findFirst({
-    where: {
-      id: customerId,
-      businessId: business.id,
-    },
+    where: { id: customerId, businessId: business.id },
   });
-
   if (!customer) {
     throw new Error("Selected customer was not found.");
   }
-
   if (staffMemberId) {
     const staffMember = await prisma.staffMember.findFirst({
-      where: {
-        id: staffMemberId,
-        businessId: business.id,
-        isActive: true,
-      },
+      where: { id: staffMemberId, businessId: business.id, isActive: true },
     });
-
     if (!staffMember) {
       throw new Error("Selected staff member was not found.");
     }
   }
-
+  const slotResult = await getAvailableSlotsForBooking({
+    slug: business.slug,
+    serviceId,
+    date: appointmentDate,
+  });
+  const selectedSlotIsAvailable = slotResult.slots.some(
+    (slot) => slot.value === startTime,
+  );
+  if (!selectedSlotIsAvailable) {
+    throw new Error(
+      slotResult.message ??
+        "The selected appointment time is no longer available.",
+    );
+  }
   const date = new Date(`${appointmentDate}T00:00:00.000Z`);
   const endTime = addMinutesToTime(startTime, service.durationMinutes);
-
   const existingAppointment = await prisma.appointment.findFirst({
     where: {
       businessId: business.id,
       date,
-      startTime,
-      status: {
-        not: "CANCELLED",
-      },
+      status: { not: "CANCELLED" },
+      startTime: { lt: endTime },
+      endTime: { gt: startTime },
     },
   });
-
   if (existingAppointment) {
-    throw new Error("That time slot is already booked.");
+    throw new Error("That appointment time is no longer available.");
   }
-
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
-
   await prisma.$transaction([
     prisma.appointment.create({
       data: {
@@ -189,29 +180,14 @@ export async function createAppointmentAction(formData: FormData) {
         notes: optional(formData.get("notes")),
       },
     }),
-
     prisma.bookingUsage.upsert({
       where: {
-        businessId_month_year: {
-          businessId: business.id,
-          month,
-          year,
-        },
+        businessId_month_year: { businessId: business.id, month, year },
       },
-      update: {
-        bookingCount: {
-          increment: 1,
-        },
-      },
-      create: {
-        businessId: business.id,
-        month,
-        year,
-        bookingCount: 1,
-      },
+      update: { bookingCount: { increment: 1 } },
+      create: { businessId: business.id, month, year, bookingCount: 1 },
     }),
   ]);
-
   redirect("/appointments");
 }
 
@@ -345,38 +321,26 @@ export async function changeCurrentBusinessPlanAction(formData: FormData) {
 
 export async function updateAvailabilityRuleAction(formData: FormData) {
   const { business } = await getActiveBusiness();
-
   const availabilityRuleId = required(
     formData.get("availabilityRuleId"),
     "Availability rule ID",
   );
-  const isClosed = formData.get("isClosed") === "on";
-
+  const isClosedValue = formData.get("isClosed")?.toString();
+  const isClosed = isClosedValue === "on" || isClosedValue === "true";
   const startTime = isClosed
     ? "00:00"
     : required(formData.get("startTime"), "Start time");
   const endTime = isClosed
     ? "00:00"
     : required(formData.get("endTime"), "End time");
-
   if (!isClosed && startTime >= endTime) {
-    throw new Error(
-      "End time must be later than start time. Mark the day as closed if the business is not open.",
-    );
+    throw new Error("End time must be later than start time.");
   }
-
   await prisma.availabilityRule.update({
-    where: {
-      id: availabilityRuleId,
-      businessId: business.id,
-    },
-    data: {
-      startTime,
-      endTime,
-      isClosed,
-    },
+    where: { id: availabilityRuleId, businessId: business.id },
+    data: { startTime, endTime, isClosed },
   });
-
   revalidatePath("/availability");
   revalidatePath("/booking-page");
+  revalidatePath(`/book/${business.slug}`);
 }
