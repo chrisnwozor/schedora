@@ -1,5 +1,17 @@
 "use server";
 
+import { parseDateInputAsUtc } from "@/lib/date";
+
+import {
+  appointmentCancelledTemplate,
+  appointmentConfirmedTemplate,
+  appointmentRescheduledTemplate,
+} from "@/server/email/appointment-templates";
+
+import {
+  deliverEmailDeliveries,
+  queueEmailDelivery,
+} from "@/server/email/delivery";
 import { getMonthKeyInTimeZone } from "@/lib/date";
 import { getAvailableSlotsForBooking } from "@/server/booking/slots";
 import { revalidatePath } from "next/cache";
@@ -222,14 +234,17 @@ export async function createAppointmentAction(formData: FormData) {
 
 export async function updateAppointmentStatusAction(formData: FormData) {
   const { business, user } = await getActiveBusiness();
+
   const appointmentId = required(
     formData.get("appointmentId"),
     "Appointment ID",
   );
+
   const status = required(
     formData.get("status"),
     "Status",
   ) as AppointmentStatusValue;
+
   if (
     !["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"].includes(
       status,
@@ -237,18 +252,29 @@ export async function updateAppointmentStatusAction(formData: FormData) {
   ) {
     throw new Error("Invalid appointment status.");
   }
+
   if (status === "CANCELLED") {
     throw new Error(
       "Use the cancellation form so a cancellation reason can be recorded.",
     );
   }
+
   const appointment = await prisma.appointment.findFirst({
-    where: { id: appointmentId, businessId: business.id },
-    select: { id: true, status: true },
+    where: {
+      id: appointmentId,
+      businessId: business.id,
+    },
+    include: {
+      customer: true,
+      service: true,
+      staffMember: true,
+    },
   });
+
   if (!appointment) {
     throw new Error("Appointment was not found.");
   }
+
   if (
     !canChangeAppointmentStatus(
       appointment.status as AppointmentStatusValue,
@@ -259,12 +285,19 @@ export async function updateAppointmentStatusAction(formData: FormData) {
       `Appointment cannot move from ${appointment.status} to ${status}.`,
     );
   }
-  await prisma.$transaction([
-    prisma.appointment.update({
-      where: { id: appointment.id, businessId: business.id },
-      data: { status },
-    }),
-    prisma.appointmentEvent.create({
+
+  const deliveryIds = await prisma.$transaction(async (tx) => {
+    await tx.appointment.update({
+      where: {
+        id: appointment.id,
+        businessId: business.id,
+      },
+      data: {
+        status,
+      },
+    });
+
+    await tx.appointmentEvent.create({
       data: {
         businessId: business.id,
         appointmentId: appointment.id,
@@ -273,40 +306,92 @@ export async function updateAppointmentStatusAction(formData: FormData) {
         fromStatus: appointment.status,
         toStatus: status,
       },
-    }),
-  ]);
+    });
+
+    const queuedDeliveryIds: string[] = [];
+
+    if (status === "CONFIRMED" && appointment.customer.email) {
+      const template = appointmentConfirmedTemplate({
+        businessName: business.name,
+        customerName: appointment.customer.name,
+        serviceName: appointment.service.name,
+        date: appointment.date,
+        startTime: appointment.startTime,
+        endTime: appointment.endTime,
+        staffName: appointment.staffMember?.name ?? null,
+      });
+
+      queuedDeliveryIds.push(
+        await queueEmailDelivery(tx, {
+          businessId: business.id,
+          appointmentId: appointment.id,
+          type: "CUSTOMER_APPOINTMENT_CONFIRMED",
+          recipientEmail: appointment.customer.email,
+          recipientName: appointment.customer.name,
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+          idempotencyKey: `customer-confirmed/${appointment.id}`,
+        }),
+      );
+    }
+
+    return queuedDeliveryIds;
+  });
+
+  await deliverEmailDeliveries(deliveryIds);
+
   revalidateAppointmentPages(appointment.id, business.slug);
 }
+
 export async function cancelAppointmentAction(formData: FormData) {
   const { business, user } = await getActiveBusiness();
+
   const appointmentId = required(
     formData.get("appointmentId"),
     "Appointment ID",
   );
+
   const reason = required(formData.get("reason"), "Cancellation reason");
+
   const appointment = await prisma.appointment.findFirst({
-    where: { id: appointmentId, businessId: business.id },
-    select: { id: true, status: true },
+    where: {
+      id: appointmentId,
+      businessId: business.id,
+    },
+    include: {
+      customer: true,
+      service: true,
+      staffMember: true,
+    },
   });
+
   if (!appointment) {
     throw new Error("Appointment was not found.");
   }
+
   if (appointment.status === "CANCELLED") {
     throw new Error("This appointment is already cancelled.");
   }
+
   if (appointment.status === "COMPLETED") {
     throw new Error("A completed appointment cannot be cancelled.");
   }
-  await prisma.$transaction([
-    prisma.appointment.update({
-      where: { id: appointment.id, businessId: business.id },
+
+  const deliveryIds = await prisma.$transaction(async (tx) => {
+    await tx.appointment.update({
+      where: {
+        id: appointment.id,
+        businessId: business.id,
+      },
       data: {
         status: "CANCELLED",
         cancellationReason: reason,
         cancelledAt: new Date(),
       },
-    }),
-    prisma.appointmentEvent.create({
+    });
+
+    await tx.appointmentEvent.create({
       data: {
         businessId: business.id,
         appointmentId: appointment.id,
@@ -316,28 +401,79 @@ export async function cancelAppointmentAction(formData: FormData) {
         toStatus: "CANCELLED",
         reason,
       },
-    }),
-  ]);
+    });
+
+    const queuedDeliveryIds: string[] = [];
+
+    if (appointment.customer.email) {
+      const template = appointmentCancelledTemplate({
+        businessName: business.name,
+        customerName: appointment.customer.name,
+        serviceName: appointment.service.name,
+        date: appointment.date,
+        startTime: appointment.startTime,
+        endTime: appointment.endTime,
+        staffName: appointment.staffMember?.name ?? null,
+        reason,
+      });
+
+      queuedDeliveryIds.push(
+        await queueEmailDelivery(tx, {
+          businessId: business.id,
+          appointmentId: appointment.id,
+          type: "CUSTOMER_APPOINTMENT_CANCELLED",
+          recipientEmail: appointment.customer.email,
+          recipientName: appointment.customer.name,
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+          idempotencyKey: `customer-cancelled/${appointment.id}`,
+        }),
+      );
+    }
+
+    return queuedDeliveryIds;
+  });
+
+  await deliverEmailDeliveries(deliveryIds);
+
   revalidateAppointmentPages(appointment.id, business.slug);
 }
+
 export async function rescheduleAppointmentAction(formData: FormData) {
   const { business, user } = await getActiveBusiness();
+
   const appointmentId = required(
     formData.get("appointmentId"),
     "Appointment ID",
   );
+
   const serviceId = required(formData.get("serviceId"), "Service");
+
   const staffMemberId = optional(formData.get("staffMemberId"));
+
   const appointmentDate = required(formData.get("date"), "Date");
+
   const startTime = required(formData.get("startTime"), "Start time");
+
   const reason = optional(formData.get("reason"));
+
   const appointment = await prisma.appointment.findFirst({
-    where: { id: appointmentId, businessId: business.id },
-    include: { service: true },
+    where: {
+      id: appointmentId,
+      businessId: business.id,
+    },
+    include: {
+      customer: true,
+      service: true,
+      staffMember: true,
+    },
   });
+
   if (!appointment) {
     throw new Error("Appointment was not found.");
   }
+
   if (
     appointment.status === "CANCELLED" ||
     appointment.status === "COMPLETED"
@@ -346,62 +482,105 @@ export async function rescheduleAppointmentAction(formData: FormData) {
       "Cancelled or completed appointments cannot be rescheduled.",
     );
   }
+
   const service = await prisma.service.findFirst({
-    where: { id: serviceId, businessId: business.id, isActive: true },
+    where: {
+      id: serviceId,
+      businessId: business.id,
+      isActive: true,
+    },
   });
+
   if (!service) {
     throw new Error("Selected service was not found.");
   }
+
+  let selectedStaffName: string | null = null;
+
   if (staffMemberId) {
     const staffMember = await prisma.staffMember.findFirst({
-      where: { id: staffMemberId, businessId: business.id, isActive: true },
+      where: {
+        id: staffMemberId,
+        businessId: business.id,
+        isActive: true,
+      },
     });
+
     if (!staffMember) {
       throw new Error("Selected staff member was not found.");
     }
+
+    selectedStaffName = staffMember.name;
   }
+
   const slotResult = await getAvailableSlotsForBooking({
     slug: business.slug,
     serviceId,
     date: appointmentDate,
     excludeAppointmentId: appointment.id,
   });
+
   const selectedSlotIsAvailable = slotResult.slots.some(
     (slot) => slot.value === startTime,
   );
+
   if (!selectedSlotIsAvailable) {
     throw new Error(
       slotResult.message ??
         "The selected appointment time is no longer available.",
     );
   }
-  const newDate = new Date(`${appointmentDate}T00:00:00.000Z`);
+
+  const newDate = parseDateInputAsUtc(appointmentDate);
+
+  if (!newDate) {
+    throw new Error("Choose a valid appointment date.");
+  }
+
   const newEndTime = addMinutesToTime(startTime, service.durationMinutes);
+
   const changed =
     appointment.serviceId !== serviceId ||
     appointment.staffMemberId !== staffMemberId ||
     appointment.date.getTime() !== newDate.getTime() ||
     appointment.startTime !== startTime;
+
   if (!changed) {
     throw new Error("No rescheduling changes were made.");
   }
+
   const conflictingAppointment = await prisma.appointment.findFirst({
     where: {
-      id: { not: appointment.id },
+      id: {
+        not: appointment.id,
+      },
       businessId: business.id,
       date: newDate,
-      status: { not: "CANCELLED" },
-      startTime: { lt: newEndTime },
-      endTime: { gt: startTime },
+      status: {
+        not: "CANCELLED",
+      },
+      startTime: {
+        lt: newEndTime,
+      },
+      endTime: {
+        gt: startTime,
+      },
     },
-    select: { id: true },
+    select: {
+      id: true,
+    },
   });
+
   if (conflictingAppointment) {
     throw new Error("That appointment time is no longer available.");
   }
-  await prisma.$transaction([
-    prisma.appointment.update({
-      where: { id: appointment.id, businessId: business.id },
+
+  const deliveryIds = await prisma.$transaction(async (tx) => {
+    await tx.appointment.update({
+      where: {
+        id: appointment.id,
+        businessId: business.id,
+      },
       data: {
         serviceId,
         staffMemberId,
@@ -409,8 +588,9 @@ export async function rescheduleAppointmentAction(formData: FormData) {
         startTime,
         endTime: newEndTime,
       },
-    }),
-    prisma.appointmentEvent.create({
+    });
+
+    await tx.appointmentEvent.create({
       data: {
         businessId: business.id,
         appointmentId: appointment.id,
@@ -422,8 +602,46 @@ export async function rescheduleAppointmentAction(formData: FormData) {
         nextStartTime: startTime,
         reason,
       },
-    }),
-  ]);
+    });
+
+    const queuedDeliveryIds: string[] = [];
+
+    if (appointment.customer.email) {
+      const template = appointmentRescheduledTemplate({
+        businessName: business.name,
+        customerName: appointment.customer.name,
+        serviceName: service.name,
+        date: newDate,
+        startTime,
+        endTime: newEndTime,
+        staffName: selectedStaffName,
+        previousDate: appointment.date,
+        previousStartTime: appointment.startTime,
+      });
+
+      const scheduleVersion =
+        newDate.toISOString().slice(0, 10) + "-" + startTime.replace(":", "");
+
+      queuedDeliveryIds.push(
+        await queueEmailDelivery(tx, {
+          businessId: business.id,
+          appointmentId: appointment.id,
+          type: "CUSTOMER_APPOINTMENT_RESCHEDULED",
+          recipientEmail: appointment.customer.email,
+          recipientName: appointment.customer.name,
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+          idempotencyKey: `customer-rescheduled/${appointment.id}/${scheduleVersion}`,
+        }),
+      );
+    }
+
+    return queuedDeliveryIds;
+  });
+
+  await deliverEmailDeliveries(deliveryIds);
+
   revalidateAppointmentPages(appointment.id, business.slug);
 }
 

@@ -5,6 +5,14 @@ import { redirect } from "next/navigation";
 import { getMonthKeyInTimeZone, parseDateInputAsUtc } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import {
+  bookingRequestedCustomerTemplate,
+  newBookingOwnerTemplate,
+} from "@/server/email/appointment-templates";
+import {
+  deliverEmailDeliveries,
+  queueEmailDelivery,
+} from "@/server/email/delivery";
+import {
   getAvailableSlotsForBooking,
   type SlotResult,
 } from "@/server/booking/slots";
@@ -92,6 +100,12 @@ export async function createPublicBooking(formData: FormData) {
     },
     include: {
       subscription: true,
+      owner: {
+        select: {
+          email: true,
+          name: true,
+        },
+      },
     },
   });
 
@@ -143,8 +157,11 @@ export async function createPublicBooking(formData: FormData) {
 
   const limit = plan === "PRO" ? null : plan === "STARTER" ? 100 : 20;
 
+  let deliveryIds: string[] = [];
+  let appointmentId = "";
+
   try {
-    await prisma.$transaction(
+    const result = await prisma.$transaction(
       async (tx) => {
         const conflictingAppointment = await tx.appointment.findFirst({
           where: {
@@ -212,7 +229,7 @@ export async function createPublicBooking(formData: FormData) {
               },
             });
 
-        await tx.appointment.create({
+        const appointment = await tx.appointment.create({
           data: {
             businessId: business.id,
             customerId: customer.id,
@@ -245,11 +262,75 @@ export async function createPublicBooking(formData: FormData) {
             bookingCount: 1,
           },
         });
+
+        const queuedDeliveryIds: string[] = [];
+
+        if (customer.email) {
+          const template = bookingRequestedCustomerTemplate({
+            businessName: business.name,
+            customerName: customer.name,
+            serviceName: service.name,
+            date,
+            startTime,
+            endTime,
+          });
+
+          queuedDeliveryIds.push(
+            await queueEmailDelivery(tx, {
+              businessId: business.id,
+              appointmentId: appointment.id,
+              type: "CUSTOMER_BOOKING_REQUESTED",
+              recipientEmail: customer.email,
+              recipientName: customer.name,
+              subject: template.subject,
+              html: template.html,
+              text: template.text,
+              idempotencyKey: `customer-booking-requested/${appointment.id}`,
+            }),
+          );
+        }
+
+        const ownerEmail = business.email || business.owner.email;
+
+        if (ownerEmail) {
+          const template = newBookingOwnerTemplate({
+            businessName: business.name,
+            customerName: customer.name,
+            customerPhone: customer.phone,
+            customerEmail: customer.email,
+            serviceName: service.name,
+            date,
+            startTime,
+            endTime,
+          });
+
+          queuedDeliveryIds.push(
+            await queueEmailDelivery(tx, {
+              businessId: business.id,
+              appointmentId: appointment.id,
+              type: "OWNER_NEW_BOOKING",
+              recipientEmail: ownerEmail,
+              recipientName: business.owner.name ?? "Business owner",
+              subject: template.subject,
+              html: template.html,
+              text: template.text,
+              idempotencyKey: `owner-new-booking/${appointment.id}`,
+            }),
+          );
+        }
+
+        return {
+          appointmentId: appointment.id,
+          deliveryIds: queuedDeliveryIds,
+        };
       },
       {
         isolationLevel: "Serializable",
       },
     );
+
+    appointmentId = result.appointmentId;
+    deliveryIds = result.deliveryIds;
   } catch (caught) {
     const errorMessage =
       caught instanceof Error ? caught.message : "UNKNOWN_ERROR";
@@ -273,5 +354,11 @@ export async function createPublicBooking(formData: FormData) {
     fail(slug, "We could not complete the booking. Please try again.");
   }
 
-  redirect(`/book/${slug}/success?name=${encodeURIComponent(customerName)}`);
+  await deliverEmailDeliveries(deliveryIds);
+
+  redirect(
+    `/book/${slug}/success?name=${encodeURIComponent(
+      customerName,
+    )}&appointmentId=${appointmentId}`,
+  );
 }

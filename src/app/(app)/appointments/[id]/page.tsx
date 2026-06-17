@@ -36,6 +36,12 @@ export default async function AppointmentDetailsPage({
         orderBy: { createdAt: "desc" },
         include: { actor: { select: { name: true, email: true } } },
       },
+
+      emailDeliveries: {
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
     },
   });
   if (!appointment) {
@@ -137,6 +143,56 @@ export default async function AppointmentDetailsPage({
             <Card className="rounded-2xl border-neutral-200 shadow-none">
               <CardHeader>
                 <CardTitle>Appointment history</CardTitle>
+                <Card className="rounded-2xl border-neutral-200 shadow-none">
+                  <CardHeader>
+                    <CardTitle>Email delivery</CardTitle>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4">
+                    {appointment.emailDeliveries.length === 0 ? (
+                      <p className="text-sm text-neutral-500">
+                        No email notifications have been created for this
+                        appointment.
+                      </p>
+                    ) : (
+                      appointment.emailDeliveries.map((delivery) => (
+                        <div
+                          key={delivery.id}
+                          className="flex flex-col gap-3 border-b border-neutral-100 pb-4 last:border-b-0 sm:flex-row sm:items-start sm:justify-between"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium">
+                              {cleanEnum(delivery.type)}
+                            </p>
+
+                            <p className="mt-1 break-all text-sm text-neutral-600">
+                              {delivery.recipientEmail}
+                            </p>
+
+                            {delivery.lastError ? (
+                              <p className="mt-2 text-xs leading-5 text-neutral-500">
+                                {delivery.lastError}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <div className="shrink-0 text-left sm:text-right">
+                            <Badge variant="secondary">
+                              {cleanEnum(delivery.status)}
+                            </Badge>
+
+                            <p className="mt-2 text-xs text-neutral-500">
+                              {formatDateTime(
+                                delivery.createdAt,
+                                business.timeZone,
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
               </CardHeader>
               <CardContent className="space-y-5">
                 {appointment.events.map((event) => (
