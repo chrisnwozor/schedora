@@ -675,25 +675,26 @@ function FAQ() {
 
 function CTA() {
   return (
-    <section className="border-b border-neutral-200 py-12">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="flex flex-col gap-6 rounded-2xl border border-neutral-200 p-8 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="grid size-12 place-items-center rounded-xl bg-black text-white">
-              <Calendar className="size-5" />
+    <section className="mx-auto max-w-7xl px-6 py-16">
+      <div className="rounded-3xl border border-neutral-200 p-6 md:p-10">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+            <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-black text-white">
+              <Calendar className="size-6" />
             </div>
+
             <div>
-              <h2 className="text-2xl font-bold">
+              <h2 className="max-w-2xl text-3xl font-semibold tracking-tight md:text-4xl">
                 Ready to take control of your bookings?
               </h2>
-              <p className="mt-2 text-neutral-600">
+              <p className="mt-3 max-w-2xl text-lg leading-8 text-neutral-600">
                 Join thousands of service businesses using Schedora to save time
                 and grow.
               </p>
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button
               asChild
               className="bg-black text-white hover:bg-neutral-800"

@@ -3,9 +3,17 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
-function required(value: FormDataEntryValue | null, field: string) {
+function fail(slug: string, message: string): never {
+  redirect(`/book/${slug}?error=${encodeURIComponent(message)}`);
+}
+
+function requiredForBooking(
+  value: FormDataEntryValue | null,
+  field: string,
+  slug: string,
+) {
   if (!value || value.toString().trim().length === 0) {
-    throw new Error(`${field} is required.`);
+    fail(slug, `${field} is required.`);
   }
 
   return value.toString().trim();
@@ -22,12 +30,38 @@ function addMinutesToTime(time: string, minutesToAdd: number) {
 }
 
 export async function createPublicBooking(formData: FormData) {
-  const slug = required(formData.get("slug"), "Business slug");
-  const serviceId = required(formData.get("serviceId"), "Service");
-  const appointmentDate = required(formData.get("date"), "Date");
-  const startTime = required(formData.get("startTime"), "Start time");
-  const customerName = required(formData.get("customerName"), "Customer name");
-  const customerPhone = required(formData.get("customerPhone"), "Phone number");
+  const rawSlug = formData.get("slug")?.toString().trim();
+
+  if (!rawSlug) {
+    redirect("/");
+  }
+
+  const slug = rawSlug;
+  const serviceId = requiredForBooking(
+    formData.get("serviceId"),
+    "Service",
+    slug,
+  );
+  const appointmentDate = requiredForBooking(
+    formData.get("date"),
+    "Date",
+    slug,
+  );
+  const startTime = requiredForBooking(
+    formData.get("startTime"),
+    "Start time",
+    slug,
+  );
+  const customerName = requiredForBooking(
+    formData.get("customerName"),
+    "Customer name",
+    slug,
+  );
+  const customerPhone = requiredForBooking(
+    formData.get("customerPhone"),
+    "Phone number",
+    slug,
+  );
   const customerEmail =
     formData.get("customerEmail")?.toString().trim() || null;
   const notes = formData.get("notes")?.toString().trim() || null;
@@ -42,7 +76,7 @@ export async function createPublicBooking(formData: FormData) {
   });
 
   if (!business || business.status !== "ACTIVE") {
-    throw new Error("This business is not available for booking.");
+    fail(slug, "This business is not available for booking.");
   }
 
   const service = await prisma.service.findFirst({
@@ -54,7 +88,7 @@ export async function createPublicBooking(formData: FormData) {
   });
 
   if (!service) {
-    throw new Error("Selected service is not available.");
+    fail(slug, "Selected service is not available.");
   }
 
   const date = new Date(`${appointmentDate}T00:00:00.000Z`);
@@ -70,11 +104,11 @@ export async function createPublicBooking(formData: FormData) {
   });
 
   if (!availability || availability.isClosed) {
-    throw new Error("This business is closed on the selected date.");
+    fail(slug, "This business is closed on the selected date.");
   }
 
   if (startTime < availability.startTime || endTime > availability.endTime) {
-    throw new Error("Selected time is outside business availability.");
+    fail(slug, "Selected time is outside business availability.");
   }
 
   const existingAppointment = await prisma.appointment.findFirst({
@@ -89,7 +123,7 @@ export async function createPublicBooking(formData: FormData) {
   });
 
   if (existingAppointment) {
-    throw new Error("That time slot is already booked.");
+    fail(slug, "That time slot is already booked. Please choose another time.");
   }
 
   const now = new Date();
@@ -111,7 +145,7 @@ export async function createPublicBooking(formData: FormData) {
   const limit = plan === "PRO" ? null : plan === "STARTER" ? 100 : 20;
 
   if (limit !== null && currentUsage >= limit) {
-    throw new Error("This business has reached its monthly booking limit.");
+    fail(slug, "This business has reached its monthly booking limit.");
   }
 
   let customer = await prisma.customer.findFirst({

@@ -34,7 +34,7 @@ export default async function AvailabilityPage() {
         }
       />
 
-      <main className="space-y-6 p-6 lg:p-10">
+      <main className="space-y-6 p-4 lg:p-10">
         <Card className="rounded-2xl border-neutral-200 shadow-none">
           <CardHeader>
             <CardTitle>Weekly availability</CardTitle>
@@ -46,7 +46,7 @@ export default async function AvailabilityPage() {
                 <form
                   key={day.id}
                   action={updateAvailabilityRuleAction}
-                  className="grid gap-4 rounded-2xl border border-neutral-200 p-5 md:grid-cols-[1fr_1fr_1fr_auto]"
+                  className="grid min-w-0 gap-4 overflow-hidden rounded-2xl border border-neutral-200 p-5 md:grid-cols-[1fr_1fr_1fr_auto]"
                 >
                   <input
                     type="hidden"
@@ -75,7 +75,7 @@ export default async function AvailabilityPage() {
                       name="startTime"
                       type="time"
                       defaultValue={day.startTime}
-                      className="mt-2 h-11 w-full rounded-xl border border-neutral-200 px-4 text-sm outline-none"
+                      className="mt-2 h-11 w-full min-w-0 max-w-full rounded-xl border border-neutral-200 px-4 text-sm outline-none"
                     />
                   </div>
 
@@ -85,7 +85,7 @@ export default async function AvailabilityPage() {
                       name="endTime"
                       type="time"
                       defaultValue={day.endTime}
-                      className="mt-2 h-11 w-full rounded-xl border border-neutral-200 px-4 text-sm outline-none"
+                      className="mt-2 h-11 w-full min-w-0 max-w-full rounded-xl border border-neutral-200 px-4 text-sm outline-none"
                     />
                   </div>
 

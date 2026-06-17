@@ -28,12 +28,23 @@ const timeOptions = [
   "17:00",
 ];
 
+function getTodayInputValue() {
+  const now = new Date();
+  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+
+  return localDate.toISOString().slice(0, 10);
+}
+
 export default async function PublicBookingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { slug } = await params;
+  const { error } = await searchParams;
+  const todayInputValue = getTodayInputValue();
 
   const business = await prisma.business.findUnique({
     where: {
@@ -150,6 +161,11 @@ export default async function PublicBookingPage({
 
             <CardContent>
               <form action={createPublicBooking} className="space-y-8">
+                {error ? (
+                  <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm font-medium text-black">
+                    {error}
+                  </div>
+                ) : null}
                 <input type="hidden" name="slug" value={business.slug} />
 
                 <section>
@@ -203,10 +219,17 @@ export default async function PublicBookingPage({
                     <h2 className="font-semibold">2. Select date and time</h2>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid min-w-0 gap-4 md:grid-cols-2">
                     <div className="grid gap-2">
                       <label className="text-sm font-medium">Date</label>
-                      <Input name="date" type="date" required />
+                      <Input
+                        name="date"
+                        type="date"
+                        min={todayInputValue}
+                        defaultValue={todayInputValue}
+                        required
+                        className="h-12 w-full max-w-full"
+                      />
                       <p className="text-xs text-neutral-500">
                         Open days:{" "}
                         {openDays
@@ -220,7 +243,7 @@ export default async function PublicBookingPage({
                       <select
                         name="startTime"
                         required
-                        className="h-11 rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none"
+                        className="h-12 w-full max-w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none"
                       >
                         {timeOptions.map((time) => (
                           <option key={time} value={time}>
