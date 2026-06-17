@@ -1,3 +1,5 @@
+import { formatTime } from "@/lib/format";
+import { getLocalDateInputValue } from "@/lib/date";
 import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
@@ -30,6 +32,7 @@ const timeOptions = [
 
 export default async function NewAppointmentPage() {
   const { business } = await getActiveBusiness();
+  const todayInputValue = getLocalDateInputValue();
 
   const [customers, services, staffMembers] = await Promise.all([
     prisma.customer.findMany({
@@ -131,10 +134,18 @@ export default async function NewAppointmentPage() {
                 </div>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-3">
-                <div className="grid gap-2">
+              <div className="grid min-w-0 gap-5 md:grid-cols-3">
+                <div className="min-w-0">
                   <label className="text-sm font-medium">Date</label>
-                  <Input name="date" type="date" required />
+
+                  <input
+                    name="date"
+                    type="date"
+                    min={todayInputValue}
+                    defaultValue={todayInputValue}
+                    required
+                    className="mt-2 block h-12 w-full min-w-0 max-w-full rounded-xl border border-neutral-200 bg-white px-3 text-base outline-none"
+                  />
                 </div>
 
                 <div className="grid gap-2">
@@ -142,11 +153,11 @@ export default async function NewAppointmentPage() {
                   <select
                     name="startTime"
                     required
-                    className="h-11 rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none"
+                    className="h-12 w-full min-w-0 max-w-full rounded-xl border border-neutral-200 bg-white px-3 text-base outline-none"
                   >
                     {timeOptions.map((time) => (
                       <option key={time} value={time}>
-                        {time}
+                        {formatTime(time)}
                       </option>
                     ))}
                   </select>

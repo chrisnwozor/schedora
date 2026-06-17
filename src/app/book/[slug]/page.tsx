@@ -1,3 +1,4 @@
+import { getLocalDateInputValue } from "@/lib/date";
 import { notFound } from "next/navigation";
 import { Calendar, Check, Clock, Scissors } from "lucide-react";
 
@@ -28,13 +29,6 @@ const timeOptions = [
   "17:00",
 ];
 
-function getTodayInputValue() {
-  const now = new Date();
-  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-
-  return localDate.toISOString().slice(0, 10);
-}
-
 export default async function PublicBookingPage({
   params,
   searchParams,
@@ -44,7 +38,7 @@ export default async function PublicBookingPage({
 }) {
   const { slug } = await params;
   const { error } = await searchParams;
-  const todayInputValue = getTodayInputValue();
+  const todayInputValue = getLocalDateInputValue();
 
   const business = await prisma.business.findUnique({
     where: {
@@ -220,17 +214,19 @@ export default async function PublicBookingPage({
                   </div>
 
                   <div className="grid min-w-0 gap-4 md:grid-cols-2">
-                    <div className="grid gap-2">
+                    <div className="min-w-0">
                       <label className="text-sm font-medium">Date</label>
-                      <Input
+
+                      <input
                         name="date"
                         type="date"
                         min={todayInputValue}
                         defaultValue={todayInputValue}
                         required
-                        className="h-12 w-full max-w-full"
+                        className="mt-2 block h-12 w-full min-w-0 max-w-full rounded-xl border border-neutral-200 bg-white px-3 text-base text-black outline-none"
                       />
-                      <p className="text-xs text-neutral-500">
+
+                      <p className="mt-2 text-xs text-neutral-500">
                         Open days:{" "}
                         {openDays
                           .map((rule) => dayName(rule.dayOfWeek))
@@ -238,12 +234,13 @@ export default async function PublicBookingPage({
                       </p>
                     </div>
 
-                    <div className="grid gap-2">
+                    <div className="min-w-0">
                       <label className="text-sm font-medium">Time</label>
+
                       <select
                         name="startTime"
                         required
-                        className="h-12 w-full max-w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm outline-none"
+                        className="mt-2 block h-12 w-full min-w-0 max-w-full rounded-xl border border-neutral-200 bg-white px-3 text-base text-black outline-none"
                       >
                         {timeOptions.map((time) => (
                           <option key={time} value={time}>

@@ -359,6 +359,12 @@ export async function updateAvailabilityRuleAction(formData: FormData) {
     ? "00:00"
     : required(formData.get("endTime"), "End time");
 
+  if (!isClosed && startTime >= endTime) {
+    throw new Error(
+      "End time must be later than start time. Mark the day as closed if the business is not open.",
+    );
+  }
+
   await prisma.availabilityRule.update({
     where: {
       id: availabilityRuleId,
