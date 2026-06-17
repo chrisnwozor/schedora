@@ -3,7 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { formatTime } from "@/lib/format";
 export type SlotOption = { value: string; label: string };
 export type SlotResult = { slots: SlotOption[]; message: string | null };
-type SlotInput = { slug: string; serviceId: string; date: string };
+type SlotInput = {
+  slug: string;
+  serviceId: string;
+  date: string;
+  excludeAppointmentId?: string;
+};
 function timeToMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
@@ -24,6 +29,7 @@ export async function getAvailableSlotsForBooking({
   slug,
   serviceId,
   date: dateInput,
+  excludeAppointmentId,
 }: SlotInput): Promise<SlotResult> {
   const date = parseDateInput(dateInput);
   if (!date) {
@@ -62,7 +68,12 @@ export async function getAvailableSlotsForBooking({
     return { slots: [], message: "The business is closed on this date." };
   }
   const appointments = await prisma.appointment.findMany({
-    where: { businessId: business.id, date, status: { not: "CANCELLED" } },
+    where: {
+      businessId: business.id,
+      date,
+      status: { not: "CANCELLED" },
+      id: excludeAppointmentId ? { not: excludeAppointmentId } : undefined,
+    },
     select: { startTime: true, endTime: true },
   });
   const openingMinutes = timeToMinutes(availability.startTime);

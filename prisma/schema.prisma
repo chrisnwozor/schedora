@@ -31,6 +31,12 @@ enum AppointmentStatus {
   NO_SHOW
 }
 
+enum AppointmentEventType {
+  STATUS_CHANGED
+  RESCHEDULED
+  CANCELLED
+}
+
 enum SubscriptionPlan {
   FREE
   STARTER
@@ -46,13 +52,14 @@ enum SubscriptionStatus {
 
 model User {
   id           String       @id @default(cuid())
-  clerkUserId String?      @unique
+  clerkUserId  String?      @unique
   email        String       @unique
   name         String?
   platformRole PlatformRole @default(USER)
 
-  ownedBusinesses Business[]           @relation("BusinessOwner")
-  memberships     BusinessMembership[]
+  ownedBusinesses   Business[]           @relation("BusinessOwner")
+  memberships       BusinessMembership[]
+  appointmentEvents AppointmentEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -72,7 +79,7 @@ model Business {
   status       BusinessStatus @default(ACTIVE)
 
   ownerUserId String
-  owner       User @relation("BusinessOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  owner       User   @relation("BusinessOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
 
   memberships       BusinessMembership[]
   services          Service[]
@@ -83,6 +90,7 @@ model Business {
   subscription      Subscription?
   bookingUsage      BookingUsage[]
   adminNotes        AdminNote[]
+  appointmentEvents AppointmentEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -175,10 +183,14 @@ model Appointment {
   status        AppointmentStatus @default(PENDING)
   notes         String?
 
-  business    Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  service     Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id], onDelete: SetNull)
+  cancellationReason String?
+  cancelledAt        DateTime?
+
+  business    Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer    Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  service     Service            @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  staffMember StaffMember?       @relation(fields: [staffMemberId], references: [id], onDelete: SetNull)
+  events      AppointmentEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -186,6 +198,30 @@ model Appointment {
   @@index([businessId, date])
   @@index([businessId, status])
   @@map("appointments")
+}
+
+model AppointmentEvent {
+  id                String               @id @default(cuid())
+  businessId        String
+  appointmentId     String
+  actorUserId       String?
+  type              AppointmentEventType
+  fromStatus        AppointmentStatus?
+  toStatus          AppointmentStatus?
+  previousDate      DateTime?
+  nextDate          DateTime?
+  previousStartTime String?
+  nextStartTime     String?
+  reason            String?
+  business          Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointment       Appointment          @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  actor             User?                @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@index([appointmentId, createdAt])
+  @@map("appointment_events")
 }
 
 model AvailabilityRule {

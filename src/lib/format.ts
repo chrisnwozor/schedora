@@ -54,3 +54,16 @@ export function dayName(dayOfWeek: number) {
 
   return days[dayOfWeek] ?? "Unknown";
 }
+
+export function formatDateInput(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+export function formatDateTime(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}

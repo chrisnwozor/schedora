@@ -42,6 +42,36 @@ function dollarsToCents(value: string) {
   return Math.round(amount * 100);
 }
 
+type AppointmentStatusValue =
+  | "PENDING"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "COMPLETED"
+  | "NO_SHOW";
+function canChangeAppointmentStatus(
+  currentStatus: AppointmentStatusValue,
+  nextStatus: AppointmentStatusValue,
+) {
+  const transitions: Record<AppointmentStatusValue, AppointmentStatusValue[]> =
+    {
+      PENDING: ["CONFIRMED"],
+      CONFIRMED: ["COMPLETED", "NO_SHOW"],
+      CANCELLED: [],
+      COMPLETED: [],
+      NO_SHOW: [],
+    };
+  return transitions[currentStatus].includes(nextStatus);
+}
+function revalidateAppointmentPages(
+  appointmentId: string,
+  businessSlug: string,
+) {
+  revalidatePath("/appointments");
+  revalidatePath(`/appointments/${appointmentId}`);
+  revalidatePath("/dashboard");
+  revalidatePath(`/book/${businessSlug}`);
+}
+
 export async function createServiceAction(formData: FormData) {
   const { business } = await getActiveBusiness();
 
@@ -192,14 +222,15 @@ export async function createAppointmentAction(formData: FormData) {
 }
 
 export async function updateAppointmentStatusAction(formData: FormData) {
-  const { business } = await getActiveBusiness();
-
+  const { business, user } = await getActiveBusiness();
   const appointmentId = required(
     formData.get("appointmentId"),
     "Appointment ID",
   );
-  const status = required(formData.get("status"), "Status");
-
+  const status = required(
+    formData.get("status"),
+    "Status",
+  ) as AppointmentStatusValue;
   if (
     !["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"].includes(
       status,
@@ -207,24 +238,194 @@ export async function updateAppointmentStatusAction(formData: FormData) {
   ) {
     throw new Error("Invalid appointment status.");
   }
-
-  await prisma.appointment.update({
-    where: {
-      id: appointmentId,
-      businessId: business.id,
-    },
-    data: {
-      status: status as
-        | "PENDING"
-        | "CONFIRMED"
-        | "CANCELLED"
-        | "COMPLETED"
-        | "NO_SHOW",
-    },
+  if (status === "CANCELLED") {
+    throw new Error(
+      "Use the cancellation form so a cancellation reason can be recorded.",
+    );
+  }
+  const appointment = await prisma.appointment.findFirst({
+    where: { id: appointmentId, businessId: business.id },
+    select: { id: true, status: true },
   });
-
-  revalidatePath("/appointments");
-  revalidatePath("/dashboard");
+  if (!appointment) {
+    throw new Error("Appointment was not found.");
+  }
+  if (
+    !canChangeAppointmentStatus(
+      appointment.status as AppointmentStatusValue,
+      status,
+    )
+  ) {
+    throw new Error(
+      `Appointment cannot move from ${appointment.status} to ${status}.`,
+    );
+  }
+  await prisma.$transaction([
+    prisma.appointment.update({
+      where: { id: appointment.id, businessId: business.id },
+      data: { status },
+    }),
+    prisma.appointmentEvent.create({
+      data: {
+        businessId: business.id,
+        appointmentId: appointment.id,
+        actorUserId: user.id,
+        type: "STATUS_CHANGED",
+        fromStatus: appointment.status,
+        toStatus: status,
+      },
+    }),
+  ]);
+  revalidateAppointmentPages(appointment.id, business.slug);
+}
+export async function cancelAppointmentAction(formData: FormData) {
+  const { business, user } = await getActiveBusiness();
+  const appointmentId = required(
+    formData.get("appointmentId"),
+    "Appointment ID",
+  );
+  const reason = required(formData.get("reason"), "Cancellation reason");
+  const appointment = await prisma.appointment.findFirst({
+    where: { id: appointmentId, businessId: business.id },
+    select: { id: true, status: true },
+  });
+  if (!appointment) {
+    throw new Error("Appointment was not found.");
+  }
+  if (appointment.status === "CANCELLED") {
+    throw new Error("This appointment is already cancelled.");
+  }
+  if (appointment.status === "COMPLETED") {
+    throw new Error("A completed appointment cannot be cancelled.");
+  }
+  await prisma.$transaction([
+    prisma.appointment.update({
+      where: { id: appointment.id, businessId: business.id },
+      data: {
+        status: "CANCELLED",
+        cancellationReason: reason,
+        cancelledAt: new Date(),
+      },
+    }),
+    prisma.appointmentEvent.create({
+      data: {
+        businessId: business.id,
+        appointmentId: appointment.id,
+        actorUserId: user.id,
+        type: "CANCELLED",
+        fromStatus: appointment.status,
+        toStatus: "CANCELLED",
+        reason,
+      },
+    }),
+  ]);
+  revalidateAppointmentPages(appointment.id, business.slug);
+}
+export async function rescheduleAppointmentAction(formData: FormData) {
+  const { business, user } = await getActiveBusiness();
+  const appointmentId = required(
+    formData.get("appointmentId"),
+    "Appointment ID",
+  );
+  const serviceId = required(formData.get("serviceId"), "Service");
+  const staffMemberId = optional(formData.get("staffMemberId"));
+  const appointmentDate = required(formData.get("date"), "Date");
+  const startTime = required(formData.get("startTime"), "Start time");
+  const reason = optional(formData.get("reason"));
+  const appointment = await prisma.appointment.findFirst({
+    where: { id: appointmentId, businessId: business.id },
+    include: { service: true },
+  });
+  if (!appointment) {
+    throw new Error("Appointment was not found.");
+  }
+  if (
+    appointment.status === "CANCELLED" ||
+    appointment.status === "COMPLETED"
+  ) {
+    throw new Error(
+      "Cancelled or completed appointments cannot be rescheduled.",
+    );
+  }
+  const service = await prisma.service.findFirst({
+    where: { id: serviceId, businessId: business.id, isActive: true },
+  });
+  if (!service) {
+    throw new Error("Selected service was not found.");
+  }
+  if (staffMemberId) {
+    const staffMember = await prisma.staffMember.findFirst({
+      where: { id: staffMemberId, businessId: business.id, isActive: true },
+    });
+    if (!staffMember) {
+      throw new Error("Selected staff member was not found.");
+    }
+  }
+  const slotResult = await getAvailableSlotsForBooking({
+    slug: business.slug,
+    serviceId,
+    date: appointmentDate,
+    excludeAppointmentId: appointment.id,
+  });
+  const selectedSlotIsAvailable = slotResult.slots.some(
+    (slot) => slot.value === startTime,
+  );
+  if (!selectedSlotIsAvailable) {
+    throw new Error(
+      slotResult.message ??
+        "The selected appointment time is no longer available.",
+    );
+  }
+  const newDate = new Date(`${appointmentDate}T00:00:00.000Z`);
+  const newEndTime = addMinutesToTime(startTime, service.durationMinutes);
+  const changed =
+    appointment.serviceId !== serviceId ||
+    appointment.staffMemberId !== staffMemberId ||
+    appointment.date.getTime() !== newDate.getTime() ||
+    appointment.startTime !== startTime;
+  if (!changed) {
+    throw new Error("No rescheduling changes were made.");
+  }
+  const conflictingAppointment = await prisma.appointment.findFirst({
+    where: {
+      id: { not: appointment.id },
+      businessId: business.id,
+      date: newDate,
+      status: { not: "CANCELLED" },
+      startTime: { lt: newEndTime },
+      endTime: { gt: startTime },
+    },
+    select: { id: true },
+  });
+  if (conflictingAppointment) {
+    throw new Error("That appointment time is no longer available.");
+  }
+  await prisma.$transaction([
+    prisma.appointment.update({
+      where: { id: appointment.id, businessId: business.id },
+      data: {
+        serviceId,
+        staffMemberId,
+        date: newDate,
+        startTime,
+        endTime: newEndTime,
+      },
+    }),
+    prisma.appointmentEvent.create({
+      data: {
+        businessId: business.id,
+        appointmentId: appointment.id,
+        actorUserId: user.id,
+        type: "RESCHEDULED",
+        previousDate: appointment.date,
+        nextDate: newDate,
+        previousStartTime: appointment.startTime,
+        nextStartTime: startTime,
+        reason,
+      },
+    }),
+  ]);
+  revalidateAppointmentPages(appointment.id, business.slug);
 }
 
 export async function toggleServiceStatusAction(formData: FormData) {
