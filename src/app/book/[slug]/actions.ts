@@ -1,5 +1,6 @@
 "use server";
 
+import { logger } from "@/lib/logger";
 import { redirect } from "next/navigation";
 
 import { getMonthKeyInTimeZone, parseDateInputAsUtc } from "@/lib/date";
@@ -70,6 +71,11 @@ export async function getAvailableSlotsAction(input: {
   });
 
   if (!ipLimit.allowed) {
+    logger.warn("booking.slots.rate_limited_ip", {
+      slug: input.slug,
+      ipHash: context.ipHash,
+    });
+
     return {
       slots: [],
       message: ipLimit.message,
@@ -88,6 +94,11 @@ export async function getAvailableSlotsAction(input: {
   });
 
   if (!tenantLimit.allowed) {
+    logger.warn("booking.slots.rate_limited_tenant", {
+      slug: input.slug,
+      ipHash: context.ipHash,
+    });
+
     return {
       slots: [],
       message: tenantLimit.message,
@@ -116,6 +127,11 @@ export async function createPublicBooking(formData: FormData) {
       action: "BOOKING_BOT_TRAP",
     });
 
+    logger.warn("booking.bot_trap_triggered", {
+      slug,
+      ipHash: context.ipHash,
+    });
+
     fail(slug, "We could not complete the booking. Please try again.");
   }
 
@@ -131,6 +147,11 @@ export async function createPublicBooking(formData: FormData) {
   });
 
   if (!ipLimit.allowed) {
+    logger.warn("booking.submission.rate_limited_ip", {
+      slug,
+      ipHash: context.ipHash,
+    });
+
     fail(slug, ipLimit.message);
   }
 
@@ -185,6 +206,11 @@ export async function createPublicBooking(formData: FormData) {
   });
 
   if (!business || business.status !== "ACTIVE") {
+    logger.warn("booking.business_unavailable", {
+      slug,
+      ipHash: context.ipHash,
+    });
+
     fail(slug, "This business is not available for booking.");
   }
 
@@ -201,6 +227,12 @@ export async function createPublicBooking(formData: FormData) {
   });
 
   if (!tenantSubmitLimit.allowed) {
+    logger.warn("booking.submission.rate_limited_tenant", {
+      businessId: business.id,
+      slug,
+      ipHash: context.ipHash,
+    });
+
     fail(slug, tenantSubmitLimit.message);
   }
 
@@ -221,6 +253,12 @@ export async function createPublicBooking(formData: FormData) {
   });
 
   if (!contactLimit.allowed) {
+    logger.warn("booking.submission.rate_limited_contact", {
+      businessId: business.id,
+      slug,
+      ipHash: context.ipHash,
+    });
+
     fail(slug, contactLimit.message);
   }
 
@@ -233,6 +271,12 @@ export async function createPublicBooking(formData: FormData) {
   });
 
   if (!service) {
+    logger.warn("booking.service_unavailable", {
+      businessId: business.id,
+      serviceId,
+      slug,
+    });
+
     fail(slug, "Selected service is not available.");
   }
 
@@ -247,6 +291,14 @@ export async function createPublicBooking(formData: FormData) {
   );
 
   if (!selectedSlotIsAvailable) {
+    logger.warn("booking.slot_unavailable", {
+      businessId: business.id,
+      serviceId,
+      slug,
+      appointmentDate,
+      startTime,
+    });
+
     fail(
       slug,
       slotResult.message ??
@@ -476,24 +528,67 @@ export async function createPublicBooking(formData: FormData) {
         : null;
 
     if (errorMessage === "LIMIT_REACHED") {
+      logger.warn("booking.monthly_limit_reached", {
+        businessId: business.id,
+        slug,
+        plan,
+      });
+
       fail(slug, "This business has reached its monthly booking limit.");
     }
 
     if (errorMessage === "DUPLICATE_BOOKING") {
+      logger.warn("booking.duplicate_blocked", {
+        businessId: business.id,
+        serviceId,
+        slug,
+        appointmentDate,
+        startTime,
+        ipHash: context.ipHash,
+      });
+
       fail(slug, "This appointment request was already submitted recently.");
     }
 
     if (errorMessage === "SLOT_TAKEN" || prismaCode === "P2034") {
+      logger.warn("booking.slot_conflict", {
+        businessId: business.id,
+        serviceId,
+        slug,
+        appointmentDate,
+        startTime,
+        prismaCode,
+      });
+
       fail(
         slug,
         "That time was just booked by someone else. Please choose another time.",
       );
     }
 
+    logger.error("booking.creation_failed", caught, {
+      businessId: business.id,
+      serviceId,
+      slug,
+      appointmentDate,
+      startTime,
+      prismaCode,
+    });
+
     fail(slug, "We could not complete the booking. Please try again.");
   }
 
   await deliverEmailDeliveries(deliveryIds);
+
+  logger.info("booking.created", {
+    appointmentId,
+    businessId: business.id,
+    serviceId,
+    slug,
+    appointmentDate,
+    startTime,
+    emailDeliveryCount: deliveryIds.length,
+  });
 
   redirect(
     `/book/${slug}/success?name=${encodeURIComponent(

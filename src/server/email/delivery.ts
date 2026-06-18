@@ -3,6 +3,7 @@ import "server-only";
 import type { EmailDeliveryType, Prisma } from "@prisma/client";
 import { Resend } from "resend";
 
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
 type EmailDatabaseClient = Pick<Prisma.TransactionClient, "emailDelivery">;
@@ -44,6 +45,13 @@ export async function queueEmailDelivery(
     },
   });
 
+  logger.info("email.delivery.queued", {
+    deliveryId: delivery.id,
+    businessId: input.businessId,
+    appointmentId: input.appointmentId ?? null,
+    type: input.type,
+  });
+
   return delivery.id;
 }
 
@@ -59,20 +67,26 @@ export async function deliverEmailDelivery(deliveryId: string) {
   });
 
   if (!delivery) {
+    logger.warn("email.delivery.not_found", {
+      deliveryId,
+    });
+
     return;
   }
 
   if (delivery.status === "SENT" || delivery.status === "LOGGED") {
+    logger.info("email.delivery.skipped", {
+      deliveryId: delivery.id,
+      businessId: delivery.businessId,
+      appointmentId: delivery.appointmentId,
+      type: delivery.type,
+      status: delivery.status,
+    });
+
     return;
   }
 
   if (getEmailMode() === "log") {
-    console.info("[Schedora email log]", {
-      deliveryId: delivery.id,
-      type: delivery.type,
-      subject: delivery.subject,
-    });
-
     await prisma.emailDelivery.update({
       where: {
         id: delivery.id,
@@ -86,6 +100,13 @@ export async function deliverEmailDelivery(deliveryId: string) {
       },
     });
 
+    logger.info("email.delivery.logged", {
+      deliveryId: delivery.id,
+      businessId: delivery.businessId,
+      appointmentId: delivery.appointmentId,
+      type: delivery.type,
+    });
+
     return;
   }
 
@@ -93,6 +114,8 @@ export async function deliverEmailDelivery(deliveryId: string) {
   const from = process.env.EMAIL_FROM;
 
   if (!apiKey || !from) {
+    const configurationError = "RESEND_API_KEY or EMAIL_FROM is missing.";
+
     await prisma.emailDelivery.update({
       where: {
         id: delivery.id,
@@ -102,8 +125,17 @@ export async function deliverEmailDelivery(deliveryId: string) {
         attempts: {
           increment: 1,
         },
-        lastError: "RESEND_API_KEY or EMAIL_FROM is missing.",
+        lastError: configurationError,
       },
+    });
+
+    logger.warn("email.delivery.configuration_missing", {
+      deliveryId: delivery.id,
+      businessId: delivery.businessId,
+      appointmentId: delivery.appointmentId,
+      type: delivery.type,
+      missingApiKey: !apiKey,
+      missingFromAddress: !from,
     });
 
     return;
@@ -149,6 +181,14 @@ export async function deliverEmailDelivery(deliveryId: string) {
         },
       });
 
+      logger.error("email.delivery.provider_failed", new Error(error.message), {
+        deliveryId: delivery.id,
+        businessId: delivery.businessId,
+        appointmentId: delivery.appointmentId,
+        type: delivery.type,
+        provider: delivery.provider,
+      });
+
       return;
     }
 
@@ -166,7 +206,21 @@ export async function deliverEmailDelivery(deliveryId: string) {
         lastError: null,
       },
     });
+
+    logger.info("email.delivery.sent", {
+      deliveryId: delivery.id,
+      businessId: delivery.businessId,
+      appointmentId: delivery.appointmentId,
+      type: delivery.type,
+      provider: delivery.provider,
+      providerMessageId: data?.id ?? null,
+    });
   } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Unknown email delivery failure.";
+
     await prisma.emailDelivery.update({
       where: {
         id: delivery.id,
@@ -176,17 +230,30 @@ export async function deliverEmailDelivery(deliveryId: string) {
         attempts: {
           increment: 1,
         },
-        lastError:
-          error instanceof Error
-            ? error.message
-            : "Unknown email delivery failure.",
+        lastError: errorMessage,
       },
+    });
+
+    logger.error("email.delivery.unexpected_failure", error, {
+      deliveryId: delivery.id,
+      businessId: delivery.businessId,
+      appointmentId: delivery.appointmentId,
+      type: delivery.type,
+      provider: delivery.provider,
     });
   }
 }
 
 export async function deliverEmailDeliveries(deliveryIds: string[]) {
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     deliveryIds.map((deliveryId) => deliverEmailDelivery(deliveryId)),
   );
+
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      logger.error("email.delivery.unhandled_failure", result.reason, {
+        deliveryId: deliveryIds[index],
+      });
+    }
+  });
 }
