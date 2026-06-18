@@ -16,9 +16,14 @@ import {
   getAvailableSlotsForBooking,
   type SlotResult,
 } from "@/server/booking/slots";
+import {
+  checkPublicRateLimit,
+  getPublicRequestContext,
+  recordPublicBotTrap,
+} from "@/server/security/public-rate-limit";
 
 function fail(slug: string, message: string): never {
-  redirect(`/book/${slug}?error=${encodeURIComponent(message)}`);
+  redirect(`/book/${slug}?error=${encodeURIComponent(message)}#booking-error`);
 }
 
 function requiredForBooking(
@@ -42,11 +47,53 @@ function addMinutesToTime(time: string, minutesToAdd: number) {
   ).padStart(2, "0")}`;
 }
 
+function normalizeContact(value: string) {
+  return value.toLowerCase().replaceAll(" ", "");
+}
+
 export async function getAvailableSlotsAction(input: {
   slug: string;
   serviceId: string;
   date: string;
 }): Promise<SlotResult> {
+  const context = await getPublicRequestContext();
+
+  const ipLimit = await checkPublicRateLimit({
+    action: "SLOT_LOOKUP_IP",
+    identifier: `slot-ip:${context.ipAddress}:${input.slug}`,
+    context,
+    slug: input.slug,
+    maxAttempts: 80,
+    windowSeconds: 10 * 60,
+    blockedMessage:
+      "Too many availability checks. Please wait a few minutes and try again.",
+  });
+
+  if (!ipLimit.allowed) {
+    return {
+      slots: [],
+      message: ipLimit.message,
+    };
+  }
+
+  const tenantLimit = await checkPublicRateLimit({
+    action: "SLOT_LOOKUP_TENANT",
+    identifier: `slot-tenant:${input.slug}`,
+    context,
+    slug: input.slug,
+    maxAttempts: 600,
+    windowSeconds: 10 * 60,
+    blockedMessage:
+      "This booking page is receiving too many requests. Please try again shortly.",
+  });
+
+  if (!tenantLimit.allowed) {
+    return {
+      slots: [],
+      message: tenantLimit.message,
+    };
+  }
+
   return getAvailableSlotsForBooking(input);
 }
 
@@ -58,6 +105,34 @@ export async function createPublicBooking(formData: FormData) {
   }
 
   const slug = rawSlug;
+  const context = await getPublicRequestContext();
+
+  const honeypot = formData.get("website")?.toString().trim();
+
+  if (honeypot) {
+    await recordPublicBotTrap({
+      context,
+      slug,
+      action: "BOOKING_BOT_TRAP",
+    });
+
+    fail(slug, "We could not complete the booking. Please try again.");
+  }
+
+  const ipLimit = await checkPublicRateLimit({
+    action: "BOOKING_SUBMIT_IP",
+    identifier: `booking-ip:${context.ipAddress}:${slug}`,
+    context,
+    slug,
+    maxAttempts: 8,
+    windowSeconds: 15 * 60,
+    blockedMessage:
+      "Too many booking attempts. Please wait a few minutes and try again.",
+  });
+
+  if (!ipLimit.allowed) {
+    fail(slug, ipLimit.message);
+  }
 
   const serviceId = requiredForBooking(
     formData.get("serviceId"),
@@ -113,6 +188,42 @@ export async function createPublicBooking(formData: FormData) {
     fail(slug, "This business is not available for booking.");
   }
 
+  const tenantSubmitLimit = await checkPublicRateLimit({
+    action: "BOOKING_SUBMIT_TENANT",
+    identifier: `booking-tenant:${business.id}`,
+    context,
+    slug,
+    businessId: business.id,
+    maxAttempts: 60,
+    windowSeconds: 10 * 60,
+    blockedMessage:
+      "This booking page is receiving too many appointment requests. Please try again shortly.",
+  });
+
+  if (!tenantSubmitLimit.allowed) {
+    fail(slug, tenantSubmitLimit.message);
+  }
+
+  const contactIdentity = customerEmail
+    ? `email:${normalizeContact(customerEmail)}`
+    : `phone:${normalizeContact(customerPhone)}`;
+
+  const contactLimit = await checkPublicRateLimit({
+    action: "BOOKING_SUBMIT_CONTACT",
+    identifier: `booking-contact:${business.id}:${contactIdentity}`,
+    context,
+    slug,
+    businessId: business.id,
+    maxAttempts: 4,
+    windowSeconds: 60 * 60,
+    blockedMessage:
+      "Too many recent booking attempts with this contact information. Please wait and try again.",
+  });
+
+  if (!contactLimit.allowed) {
+    fail(slug, contactLimit.message);
+  }
+
   const service = await prisma.service.findFirst({
     where: {
       id: serviceId,
@@ -163,6 +274,30 @@ export async function createPublicBooking(formData: FormData) {
   try {
     const result = await prisma.$transaction(
       async (tx) => {
+        const recentDuplicate = await tx.appointment.findFirst({
+          where: {
+            businessId: business.id,
+            serviceId: service.id,
+            date,
+            startTime,
+            customer: {
+              is: {
+                phone: customerPhone,
+              },
+            },
+            createdAt: {
+              gte: new Date(Date.now() - 30 * 60 * 1000),
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (recentDuplicate) {
+          throw new Error("DUPLICATE_BOOKING");
+        }
+
         const conflictingAppointment = await tx.appointment.findFirst({
           where: {
             businessId: business.id,
@@ -342,6 +477,10 @@ export async function createPublicBooking(formData: FormData) {
 
     if (errorMessage === "LIMIT_REACHED") {
       fail(slug, "This business has reached its monthly booking limit.");
+    }
+
+    if (errorMessage === "DUPLICATE_BOOKING") {
+      fail(slug, "This appointment request was already submitted recently.");
     }
 
     if (errorMessage === "SLOT_TAKEN" || prismaCode === "P2034") {

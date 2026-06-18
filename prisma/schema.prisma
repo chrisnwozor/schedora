@@ -108,6 +108,7 @@ model Business {
   adminNotes        AdminNote[]
   appointmentEvents AppointmentEvent[]
   emailDeliveries   EmailDelivery[]
+  publicRequestLogs PublicRequestLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -335,4 +336,26 @@ model AdminNote {
 
   @@index([businessId])
   @@map("admin_notes")
+}
+
+model PublicRequestLog {
+  id             String  @id @default(cuid())
+  businessId     String?
+  slug           String?
+  action         String
+  identifierHash String
+  ipHash         String?
+  userAgent      String?
+  allowed        Boolean @default(true)
+  reason         String?
+
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([businessId, action, createdAt])
+  @@index([slug, action, createdAt])
+  @@index([identifierHash, action, createdAt])
+  @@index([allowed, createdAt])
+  @@map("public_request_logs")
 }
