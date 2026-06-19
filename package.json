@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "npm test && prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test tests/date.test.ts tests/slots.test.ts tests/rate-limit.test.ts tests/booking-input.test.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

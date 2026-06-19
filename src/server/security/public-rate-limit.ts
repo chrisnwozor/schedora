@@ -1,11 +1,17 @@
 import "server-only";
 
-import { createHash } from "crypto";
 import { headers } from "next/headers";
 
 import { prisma } from "@/lib/prisma";
+import {
+  getRateLimitWindowStart,
+  hashRateLimitValue,
+  isRateLimitAllowed,
+  normalizeIp,
+  normalizeUserAgent,
+} from "@/server/security/rate-limit-core";
 
-type PublicRequestContext = {
+export type PublicRequestContext = {
   ipAddress: string;
   ipHash: string;
   userAgent: string | null;
@@ -29,32 +35,16 @@ function getRateLimitSecret() {
 }
 
 function hashValue(value: string) {
-  return createHash("sha256")
-    .update(`${getRateLimitSecret()}:${value}`)
-    .digest("hex");
-}
-
-function normalizeIp(value: string | null) {
-  if (!value) {
-    return "unknown";
-  }
-
-  return value.split(",")[0]?.trim() || "unknown";
-}
-
-function normalizeUserAgent(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  return value.slice(0, 500);
+  return hashRateLimitValue(value, getRateLimitSecret());
 }
 
 export async function getPublicRequestContext(): Promise<PublicRequestContext> {
   const headerStore = await headers();
 
   const forwardedFor = headerStore.get("x-forwarded-for");
+
   const realIp = headerStore.get("x-real-ip");
+
   const cloudflareIp = headerStore.get("cf-connecting-ip");
 
   const ipAddress = normalizeIp(cloudflareIp ?? realIp ?? forwardedFor);
@@ -69,7 +59,7 @@ export async function getPublicRequestContext(): Promise<PublicRequestContext> {
 export async function checkPublicRateLimit(input: RateLimitInput) {
   const identifierHash = hashValue(input.identifier);
 
-  const windowStart = new Date(Date.now() - input.windowSeconds * 1000);
+  const windowStart = getRateLimitWindowStart(input.windowSeconds);
 
   const attempts = await prisma.publicRequestLog.count({
     where: {
@@ -81,7 +71,7 @@ export async function checkPublicRateLimit(input: RateLimitInput) {
     },
   });
 
-  const allowed = attempts < input.maxAttempts;
+  const allowed = isRateLimitAllowed(attempts, input.maxAttempts);
 
   await prisma.publicRequestLog.create({
     data: {

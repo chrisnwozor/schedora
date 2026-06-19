@@ -8,6 +8,7 @@ import {
   parseDateInputAsUtc,
 } from "@/lib/date";
 import { formatTime } from "@/lib/format";
+import { calculateAvailableSlotValues } from "@/server/booking/calculate-slots";
 
 export type SlotOption = {
   value: string;
@@ -25,22 +26,6 @@ type SlotInput = {
   date: string;
   excludeAppointmentId?: string;
 };
-
-function timeToMinutes(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-
-  return hours * 60 + minutes;
-}
-
-function minutesToTime(totalMinutes: number) {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-    2,
-    "0",
-  )}`;
-}
 
 export async function getAvailableSlotsForBooking({
   slug,
@@ -140,52 +125,31 @@ export async function getAvailableSlotsForBooking({
     select: {
       startTime: true,
       endTime: true,
+      status: true,
     },
   });
-
-  const openingMinutes = timeToMinutes(availability.startTime);
-
-  const closingMinutes = timeToMinutes(availability.endTime);
-
-  const latestStart = closingMinutes - service.durationMinutes;
-
-  const stepMinutes = 30;
-  const slots: SlotOption[] = [];
 
   const businessToday = getDateInputValueInTimeZone(business.timeZone);
 
   const selectedDateIsToday = dateInput === businessToday;
 
-  const currentBusinessMinutes = getTimeMinutesInTimeZone(business.timeZone);
+  const minimumStartMinutes = selectedDateIsToday
+    ? getTimeMinutesInTimeZone(business.timeZone)
+    : null;
 
-  for (
-    let candidateStart = openingMinutes;
-    candidateStart <= latestStart;
-    candidateStart += stepMinutes
-  ) {
-    const candidateEnd = candidateStart + service.durationMinutes;
+  const slotValues = calculateAvailableSlotValues({
+    openingTime: availability.startTime,
+    closingTime: availability.endTime,
+    durationMinutes: service.durationMinutes,
+    appointments,
+    stepMinutes: 30,
+    minimumStartMinutes,
+  });
 
-    if (selectedDateIsToday && candidateStart <= currentBusinessMinutes) {
-      continue;
-    }
-
-    const overlapsExistingAppointment = appointments.some((appointment) => {
-      const existingStart = timeToMinutes(appointment.startTime);
-
-      const existingEnd = timeToMinutes(appointment.endTime);
-
-      return candidateStart < existingEnd && candidateEnd > existingStart;
-    });
-
-    if (!overlapsExistingAppointment) {
-      const value = minutesToTime(candidateStart);
-
-      slots.push({
-        value,
-        label: formatTime(value),
-      });
-    }
-  }
+  const slots = slotValues.map((value) => ({
+    value,
+    label: formatTime(value),
+  }));
 
   return {
     slots,

@@ -1,5 +1,13 @@
 "use server";
 
+import {
+  addMinutesToBookingTime,
+  BookingInputError,
+  isBookingBotTrapFilled,
+  normalizeBookingContact,
+  optionalBookingText,
+  requireBookingText,
+} from "@/server/booking/booking-input";
 import { logger } from "@/lib/logger";
 import { redirect } from "next/navigation";
 
@@ -32,24 +40,15 @@ function requiredForBooking(
   field: string,
   slug: string,
 ) {
-  if (!value || value.toString().trim().length === 0) {
-    fail(slug, `${field} is required.`);
+  try {
+    return requireBookingText(value, field);
+  } catch (error) {
+    if (error instanceof BookingInputError) {
+      fail(slug, error.message);
+    }
+
+    throw error;
   }
-
-  return value.toString().trim();
-}
-
-function addMinutesToTime(time: string, minutesToAdd: number) {
-  const [hour, minute] = time.split(":").map(Number);
-  const totalMinutes = hour * 60 + minute + minutesToAdd;
-
-  return `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(
-    totalMinutes % 60,
-  ).padStart(2, "0")}`;
-}
-
-function normalizeContact(value: string) {
-  return value.toLowerCase().replaceAll(" ", "");
 }
 
 export async function getAvailableSlotsAction(input: {
@@ -118,9 +117,9 @@ export async function createPublicBooking(formData: FormData) {
   const slug = rawSlug;
   const context = await getPublicRequestContext();
 
-  const honeypot = formData.get("website")?.toString().trim();
+  const honeypotFilled = isBookingBotTrapFilled(formData.get("website"));
 
-  if (honeypot) {
+  if (honeypotFilled) {
     await recordPublicBotTrap({
       context,
       slug,
@@ -185,10 +184,9 @@ export async function createPublicBooking(formData: FormData) {
     slug,
   );
 
-  const customerEmail =
-    formData.get("customerEmail")?.toString().trim() || null;
+  const customerEmail = optionalBookingText(formData.get("customerEmail"));
 
-  const notes = formData.get("notes")?.toString().trim() || null;
+  const notes = optionalBookingText(formData.get("notes"));
 
   const business = await prisma.business.findUnique({
     where: {
@@ -237,8 +235,8 @@ export async function createPublicBooking(formData: FormData) {
   }
 
   const contactIdentity = customerEmail
-    ? `email:${normalizeContact(customerEmail)}`
-    : `phone:${normalizeContact(customerPhone)}`;
+    ? `email:${normalizeBookingContact(customerEmail)}`
+    : `phone:${normalizeBookingContact(customerPhone)}`;
 
   const contactLimit = await checkPublicRateLimit({
     action: "BOOKING_SUBMIT_CONTACT",
@@ -312,7 +310,19 @@ export async function createPublicBooking(formData: FormData) {
     fail(slug, "Choose a valid appointment date.");
   }
 
-  const endTime = addMinutesToTime(startTime, service.durationMinutes);
+  const endTime = addMinutesToBookingTime(startTime, service.durationMinutes);
+
+  if (!endTime) {
+    logger.warn("booking.invalid_time_range", {
+      businessId: business.id,
+      serviceId,
+      slug,
+      appointmentDate,
+      startTime,
+    });
+
+    fail(slug, "The selected appointment time is invalid.");
+  }
 
   const { month, year } = getMonthKeyInTimeZone(business.timeZone);
 
