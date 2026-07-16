@@ -42,7 +42,7 @@ export default async function BookingSuccessPage({
             </Button>
 
             <Button asChild variant="outline">
-              <Link href="/">Back to Schedora</Link>
+              <Link href="/dashboard">Back to Schedora</Link>
             </Button>
           </div>
         </CardContent>

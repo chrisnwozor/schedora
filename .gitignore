@@ -36,6 +36,7 @@ yarn-error.log*
 .env.production
 .env.development
 .env*.local
+.env.docker
 
 # vercel
 .vercel
@@ -45,3 +46,6 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# clerk configuration (can include secrets)
+/.clerk/
