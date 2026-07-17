@@ -210,8 +210,7 @@ function Hero() {
       <div className="mx-auto grid max-w-7xl gap-12 px-6 py-20 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
         <div>
           <Badge variant="outline" className="mb-6 rounded-full px-4 py-2">
-            Appointment booking for service businesses Schedora CI/CD Deployment
-            Works
+            Appointment booking for service businesses Works
           </Badge>
 
           <h1 className="max-w-2xl text-5xl font-bold tracking-tight md:text-6xl">
